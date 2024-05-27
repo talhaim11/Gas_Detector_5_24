@@ -4,7 +4,7 @@ import os
 
 # Set the number of samples and files
 num_samples = 311
-num_files = 101
+num_files = 100
 
 # Set the output directory
 output_dir = r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\UV\Code\code_files\UV Spectrum\Data train\Noise"
