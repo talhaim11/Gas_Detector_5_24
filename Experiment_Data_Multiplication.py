@@ -65,5 +65,5 @@ def augment_data(file_path, config_key, num_variants=100, output_dir=""):
 # Example usage
 if __name__ == "__main__":
     output_path = r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\UV\Code\code_files\UV Spectrum\Data train\17_05 data"
-    file_path = r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\General_Codes\new tests\1m_ammonia.xlsx"
+    file_path = r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\General_Codes\new tests\5m_H2S.xlsx"
     augment_data(file_path, 'experiment_3', output_dir=output_path)
