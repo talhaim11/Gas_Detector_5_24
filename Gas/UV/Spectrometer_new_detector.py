@@ -54,7 +54,7 @@ numOfDevices = ULONG(0)
 
 # Load libraries FT4222 and ftd2xx
 ftd2xx = windll.LoadLibrary("ftd2xx.dll")
-FT4222 = cdll.LoadLibrary(r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\General_Codes\Ibsen_spectrum_analyzer\Python Software Example\x64\LibFT4222-64.dll")
+FT4222 = cdll.LoadLibrary(os.path.dirname(os.path.realpath(__file__)) + "/LibFT4222-64.dll")
 
 # Define functions of ftd2xx
 ftd2xx.FT_CreateDeviceInfoList.restype = FT_STATUS
@@ -99,33 +99,14 @@ FT4222.FT4222_SPIMaster_SingleReadWrite.restype = FT4222_STATUS
 
 # _______________________________________________________________________________________________
 
-################Constants##################
-# ----------------------------------------#
-epsilon = 2.504e15  # 1/(ppm meter)
-CL = 1000  # ppm meter
-siz_factor = 0.15
-# These indices might need to be adjusted after we look at the structure of the interpolated spectra
-spectrum_start_index = 100
-spectrum_end_index = 350
-
-start = 647
-end = 958
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
 
 
 ################FUNCTIONS##################
 # ----------------------------------------#
+
+
+
+
 
 # Convert returned byte array to a decimal value
 def bytes2decimal(Array):
@@ -248,135 +229,8 @@ def list_devices():
                     serial.value.decode("utf-8"), desc.value.decode("utf-8")))
 
     return ret
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
 
 
-##############FGD FUNCTIONS################
-# ----------------------------------------#
-
-
-def update_plot(raw_data):
-    global reference_data_mode, dark_mode
-    transmission_data = 0
-    # Ensure the X_axis and raw_data are the same length
-    if len(X_axis) != len(raw_data):
-        print("Warning: X_axis and raw_data lengths do not match. Truncating to the shortest length.")
-        min_length = min(len(X_axis), len(raw_data))
-        X_axis_truncated = X_axis[:min_length]
-        raw_data_truncated = raw_data[:min_length]
-    else:
-        X_axis_truncated = X_axis
-        raw_data_truncated = raw_data
-
-    if reference_data_mode is not None and dark_mode is not None:
-        # Ensure no division by zero and subtract dark mode before division
-        
-        transmission_data = [((raw - dark) / (ref - dark)) if (ref-dark) != 0 else 0 for raw, dark, ref in zip(raw_data, dark_mode, reference_data_mode)]
-        output=model.predict(preprocess_data(transmission_data))
-        text=LABELS[np.argmax(output)]
-        line.set_xdata(X_axis[:len(transmission_data)])
-        line.set_ydata(transmission_data)
-        ax.set_ylim([0,1.1])
-        ax.set_ylabel('Transmission')
-        ax.set_title(text)
-        if text == LABELS[7] or text == LABELS[8]:  # Assuming index 0 corresponds to "no gas"
-            print("No gas detected.")
-
-        else:
-            print(f"Detected gas: {text}")
-            # Call your concentration calculation function here
-            concentration = estimate_concentration([transmission_data], wl_h2s, abs_h2s)
-            print(f"Concentration of {text}: {concentration}")
-
-
-    else:
-        line.set_xdata(X_axis[:len(raw_data)])
-        line.set_ydata(raw_data)
-        ax.set_ylabel('Intensity')
-
-    ax.set_xlim([200, 300])  # Set the x-axis scale from 100 to 300
-    ax.relim()
-    ax.autoscale_view(True, True, True)
-    fig.canvas.draw()
-    fig.canvas.flush_events()
-    
-    return transmission_data
-
-
-def preprocess_data(data):
-    data=np.array(data)
-    data = data[start:end].astype('float32')
-    data=np.expand_dims(data, axis=0)
-    return data
-
-def predict_gas(spectrum):
-    preprocessed_spectrum = preprocess_data(spectrum)
-    prediction = model.predict(np.array([preprocessed_spectrum]))
-    predicted_gas = np.argmax(prediction)
-    return predicted_gas
-
-def estimate_concentration(normalized_data, wl_h2s, abs_h2s):
-    """Estimates H2S concentration based on the normalized spectra."""
-    conc_min = 0
-    conc_max = 1200
-    conc_res = 5
-    conc_vec = np.linspace(conc_min, conc_max, int((conc_max - conc_min) / conc_res))
-    siz_factor=0.2
-    # siz = int(siz_factor * len(normalized_data))
-    # min_val = np.median(normalized_data[:siz])
-    # max_val = np.average(normalized_data[-siz:])
-    # normalized_data = (normalized_data - min_val) / (max_val - min_val)
-    concentrations = []
-    for spectra in normalized_data:
-        rms_vec = []
-        for conc in conc_vec:
-            t_sim = np.exp(-conc * epsilon * abs_h2s)
-            rms = np.linalg.norm(spectra[start:end] - t_sim)
-            rms_vec.append(rms)
-        best_conc = conc_vec[np.argmin(rms_vec)]
-        concentrations.append(best_conc)
-    return concentrations
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-##################MODEL####################
-# ----------------------------------------#
-
-
-LABELS = [ 'Ammonia','Benzene','H2S','Sulfur','Ozone','Toluene','Xylene','Regular','noise']
-
-# Load the model architecture
-model = models.Sequential([
-    layers.Dense(250, activation='tanh', input_shape=(311,)),
-    layers.Dense(180, activation='tanh'),
-    layers.Dense(100, activation='tanh'),
-    layers.Dense(50, activation='tanh'),
-    layers.Dense(20, activation='tanh'),
-    layers.Dense(len(LABELS), activation='softmax')
-])
-
-# Load the weights
-model.load_weights(r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\General_Codes\Gas_Detector_5_24\model weights\model_tanh_250-9_dropout-02_LR-0001.weights.h5")
 
 
 # _______________________________________________________________________________________________
@@ -392,7 +246,7 @@ model.load_weights(r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\G
 # _______________________________________________________________________________________________
 
 
-#################PROGRAM###################
+##############IBSEN PROGRAM################
 # ----------------------------------------#
 
 
@@ -499,19 +353,228 @@ ax.set_title('Live Spectrum')
 
 # _______________________________________________________________________________________________
 
+
+
+
+
+##############FGD FUNCTIONS################
+# ----------------------------------------#
+
+# Load gas reference data
+def load_reference_data():
+    df_h2s = pd.read_csv(r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\UV\Code\code_files\UV Spectrum\Interpolated data\H2S.csv")
+    df_ammonia = pd.read_csv(r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\UV\Code\code_files\UV Spectrum\Interpolated data\Ammonia.csv")
+    df_benzene = pd.read_csv(r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\UV\Code\code_files\UV Spectrum\Interpolated data\Benzene.csv")
+    df_toluene = pd.read_csv(r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\UV\Code\code_files\UV Spectrum\Interpolated data\Toluene.csv")
+    df_xylene = pd.read_csv(r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\UV\Code\code_files\UV Spectrum\Interpolated data\Xylene.csv")
+    df_sulfur_dioxide = pd.read_csv(r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\UV\Code\code_files\UV Spectrum\Interpolated data\Sulfur Dioxide.csv")
+
+    # Organize the reference data in a dictionary for easy access
+    reference_data = {
+        'H2S': {
+            'wavelengths': df_h2s['Wavelength'].values,
+            'Transmission': df_h2s['Transmission'].values
+        },
+        'Ammonia': {
+            'wavelengths': df_ammonia['Wavelength'].values,
+            'Transmission': df_ammonia['Transmission'].values
+        },
+        'Benzene': {
+            'wavelengths': df_benzene['Wavelength'].values,
+            'Transmission': df_benzene['Transmission'].values
+        },
+        'Toluene': {
+            'wavelengths': df_toluene['Wavelength'].values,
+            'Transmission': df_toluene['Transmission'].values
+        },
+        'Xylene': {
+            'wavelengths': df_xylene['Wavelength'].values,
+            'Transmission': df_xylene['Transmission'].values
+        },
+        'Sulfur Dioxide': {
+            'wavelengths': df_sulfur_dioxide['Wavelength'].values,
+            'Transmission': df_sulfur_dioxide['Transmission'].values
+        }
+    }
+    return reference_data
+
+def update_plot(raw_data):
+    global reference_data_mode, dark_mode
+
+
+    # Ensure the X_axis and raw_data are the same length
+    if len(X_axis) != len(raw_data):
+        print("Warning: X_axis and raw_data lengths do not match. Truncating to the shortest length.")
+        min_length = min(len(X_axis), len(raw_data))
+        X_axis_truncated = X_axis[:min_length]
+        raw_data_truncated = raw_data[:min_length]
+    else:
+        X_axis_truncated = X_axis
+        raw_data_truncated = raw_data
+
+    if reference_data_mode is not None and dark_mode is not None:
+
+        transmission_data = [((raw - dark) / (ref - dark)) if (ref-dark) != 0 else 0 for raw, dark, ref in zip(raw_data, dark_mode, reference_data_mode)]
+        
+        siz_factor=0.2
+        siz = int(siz_factor * len(transmission_data[start:end]))
+
+        max_val=np.median(np.sort(transmission_data[start:end])[-siz:])
+
+        min_val=np.median(np.sort(transmission_data[start:end])[0:siz])
+
+        # min_val = np.median(transmission_data[start:end][:siz])
+        # max_val = np.median(transmission_data[start:end][-siz:])
+        print(max_val)
+        print(min_val)
+        # if abs(min_val-max_val)>0.1:
+
+        #     transmission_data = (transmission_data - min_val) / (max_val - min_val)
+        
+        
+        predicted_gas=predict_gas(transmission_data)
+        text=LABELS[predicted_gas]
+        line.set_xdata(X_axis[:len(transmission_data)])
+        line.set_ydata(transmission_data)
+        ax.set_ylim([-0.1,1.1])
+        ax.set_ylabel('Transmission')
+        ax.set_title(text)
+        if text == LABELS[7] or text == LABELS[8]:  # Assuming index 0 corresponds to "no gas"
+            print("No gas detected.")
+
+        else:
+            if text in reference_data:
+                wl_gas, abs_gas = reference_data[text]['wavelengths'], reference_data[text]['Transmission']
+                concentration = estimate_concentration(transmission_data[start:end], wl_gas, abs_gas)
+                print(f"Concentration of {text}: {concentration}")
+                line.set_label(f'{text} Concentration: {concentration:.2f}')
+                ax.legend(loc='upper right') 
+
+            else:
+                print(f"No concentration calculation for {text}.")
+
+
+    else:
+        line.set_xdata(X_axis[:len(raw_data)])
+        line.set_ydata(raw_data)
+        ax.set_ylabel('Intensity')
+        line.set_label('Raw Intensity')
+        ax.legend(loc='upper right')  # Adjust the location as necessary
+
+    ax.set_xlim([200, 300])  # Set the x-axis scale from 200 to 300
+    ax.relim()
+    ax.autoscale_view(True, True, True)
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+
+def preprocess_data(data):
+    data=np.array(data)
+    data = data[start:end].astype('float32')
+    data=np.expand_dims(data, axis=0)
+    return data
+
+def predict_gas(spectrum):
+    preprocessed_spectrum = preprocess_data(spectrum)
+    prediction = model.predict([preprocessed_spectrum])
+    predicted_gas = np.argmax(prediction)
+    return predicted_gas
+
+def estimate_concentration(spectra, wl_gas, abs_gas):
+    """Estimates gas concentration based on the normalized spectra and the type of gas detected."""
+
+    conc_min = 0
+    conc_max = 2000
+    conc_res = 5
+    conc_vec = np.linspace(conc_min, conc_max, int((conc_max - conc_min) / conc_res))
+    siz_factor=0.2
+    siz = int(siz_factor * len(spectra))
+    # min_val = np.median(spectra[:siz])
+    # max_val = np.average(spectra[-siz:])
+    max_val=np.median(np.sort(spectra)[-siz:])
+
+    min_val=np.median(np.sort(spectra)[0:siz])
+    spectra = (spectra - min_val) / (max_val - min_val)
+
+    concentrations = []
+
+    # Ensure spectra length and absorption data length match
+    #if len(spectra) != len(abs_gas):
+    #    spectra = np.interp(wl_gas, np.arange(len(spectra)), spectra)
+    for conc in conc_vec:
+        t_sim = np.exp(-conc * epsilon * abs_gas)
+        rms = np.linalg.norm(spectra - t_sim)
+        concentrations.append((conc, rms))
+    
+    best_conc = min(concentrations, key=lambda x: x[1])[0]
+    return best_conc
+
+
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+##################MODEL####################
+# ----------------------------------------#
+
+
+LABELS = [ 'Ammonia','Benzene','H2S','Sulfur','Ozone','Toluene','Xylene','Regular','noise']
+
+# Load the model architecture
+model = models.Sequential([
+    layers.Dense(250, activation='tanh', input_shape=(311,)),
+    layers.Dense(180, activation='tanh'),
+    layers.Dense(100, activation='tanh'),
+    layers.Dense(50, activation='tanh'),
+    layers.Dense(20, activation='tanh'),
+    layers.Dense(len(LABELS), activation='softmax')
+])
+
+# Load the weights
+model.load_weights(r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\UV\Code\s1.weights.h5")
+
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+
+##############Main Program################
+# ----------------------------------------#
+epsilon = 2.504e15  # 1/(ppm meter)
+CL = 1000  # ppm meter
+siz_factor = 0.15
+# These indices might need to be adjusted after we look at the structure of the interpolated spectra
+spectrum_start_index = 100
+spectrum_end_index = 350
+
+start = 647
+end = 958
+
+
+reference_data = load_reference_data()
+
 # Read the X_axis values from a CSV file and creating reference vector variable of the spectrum needed
 df = pd.read_csv(r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\General_Codes\Ibsen_spectrum_analyzer\Python Software Example\x64\X_axis_file.csv", header=None)
 X_axis = df.iloc[0, :].values  # numpy array of values
 reference_data_mode = None
 dark_mode = None
-
-
-
-
-# Read the H2S file for reference values to write ppm*meter indications
-df1 = pd.read_csv(r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\UV\Code\code_files\UV Spectrum\Interpolated data\H2S.csv")
-wl_h2s = df1.iloc[:, 0].values  # numpy array of values
-abs_h2s = df1.iloc[:, 1].values
 
 # Initialize the flags for dark mode and reference data mode
 dark_mode_captured = False
@@ -526,45 +589,12 @@ recording = False
 filename = input("Enter a filename for the recorded data (without extension): ")
 
 
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-# _______________________________________________________________________________________________
-
-
 # Continuous data stream and live plotting
 while True:
-
-    time.sleep(0.5)
-
+    recorded_data = []
     new_spectrum = GetSpectrum(ftHandleOutCom, ftHandleOutStream)
-    new_spectrum_2 = update_plot(new_spectrum)
-
-
-    # Capture dark mode and set the flag
-    if keyboard.is_pressed('d') and not dark_mode_captured:
-        dark_mode = new_spectrum
-        dark_mode_captured = True
-        print("Dark mode data captured.")
-
-    # Capture reference data mode and set the flag
-    if keyboard.is_pressed('r') and not reference_data_captured:
-        reference_data_mode = new_spectrum
-        reference_data_captured = True
-        print("Reference data captured.")
-
-
-
-
+    update_plot(new_spectrum)
+    time.sleep(0.1)
 
     # Check if both dark mode and reference data mode have been captured
     if dark_mode_captured and reference_data_captured:
@@ -581,47 +611,11 @@ while True:
             is_recording = True
             print("Recording resumed.")
         # Stop and save if 'z' is pressed
-
-        # Record the data if recording is active
-        if is_recording:
-            recorded_data.append(new_spectrum_2[start:end])
-
-        if keyboard.is_pressed('z') and is_recording:
+        elif keyboard.is_pressed('z'):
             is_recording = False
-            print("Recording stopped. Saving data...") 
-            
+            print("Recording stopped. Saving data...")
             # Save the recorded data to a file
-            folder = r"C:\Users\thaim\OneDrive\Desktop\Tal_Projects\Gas_detector\General_Codes\Gas_Detector_5_24\Records"
-            pd.DataFrame(recorded_data).to_csv(os.path.join(folder, f"{filename}.csv"), index=False, header=False)
-            print(f"Recording finished and saved as {filename}.csv")
-            recorded_data = []  # Clear recorded data after saving
-            recording = False  # Stop recording
-
-
-    else:
-        # Start recording if 'q' is pressed and not currently recording
-        if keyboard.is_pressed('w') and not is_recording:
-            is_recording = True
-            print("Recording started.")
-        # Pause recording if 'a' is pressed and currently recording
-        elif keyboard.is_pressed('a') and is_recording:
-            is_recording = False
-            print("Recording paused.")
-        # Continue recording if 'q' is pressed and currently paused
-        elif keyboard.is_pressed('q') and not is_recording:
-            is_recording = True
-            print("Recording resumed.")
-        # Stop and save if 'z' is pressed
-
-        # Record the data if recording is active
-        if is_recording:
-            recorded_data.append(new_spectrum[start:end])
-
-        if keyboard.is_pressed('z') and is_recording:
-            is_recording = False
-            print("Recording stopped. Saving data...") 
-            
-            # Save the recorded data to a file
+            time.sleep(0.5)
             pd.DataFrame(recorded_data).to_csv(f"{filename}.csv", index=False, header=False)
             print(f"Recording finished and saved as {filename}.csv")
             recorded_data = []  # Clear recorded data after saving
@@ -629,22 +623,42 @@ while True:
 
 
 
+    # Capture dark mode and set the flag
+    if keyboard.is_pressed('d') and not dark_mode_captured:
+        dark_mode = new_spectrum
+        dark_mode_captured = True
+        print("Dark mode data captured.")
+    # Capture reference data mode and set the flag
+    if keyboard.is_pressed('r') and not reference_data_captured:
+        reference_data_mode = new_spectrum
+        reference_data_captured = True
+        print("Reference data captured.")
 
+    # Record the data if recording is active
+    if is_recording:
+        recorded_data.append(new_spectrum[start:end])
 
-
-
-    # Exit loop for demonstration purposes (Remove or modify as needed)
-    if keyboard.is_pressed('esc'):
-        break
-
-
-    
-print("Exiting...")
 
 # Close devices
 ftd2xx.FT_Close(ftHandleOutCom)
 ftd2xx.FT_Close(ftHandleOutStream)
 ftd2xx.FT_Close(ftHandleOutGPIO)
+
+
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+# _______________________________________________________________________________________________
+
+
 
 
 
