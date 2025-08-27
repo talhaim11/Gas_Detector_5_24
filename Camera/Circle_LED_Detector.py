@@ -8,55 +8,32 @@ from datetime import datetime
 # CONFIGURABLE PARAMETERS
 # ================================
 CONFIG = {
-    # Camera settings
+    # Camera settings (fixed - no need for real-time changes)
     "camera_ip": "169.254.160.162",
     "camera_port": 8554,
     "camera_username": "fgcam",
     "camera_password": "admin",
     "camera_stream_path": "/0/unicast",
     
-    # Image processing
-    "binary_threshold": 255,  # Threshold for binary conversion (0-255)
-    "binary_threshold_type": cv2.THRESH_BINARY,  # cv2.THRESH_BINARY or cv2.THRESH_BINARY_INV
+    # Real-time adjustable parameters
+    "binary_threshold": 255,  # Adjustable with +/- keys
+    "reference_x": 770,       # Adjustable with arrow keys
+    "reference_y": 310,       # Adjustable with arrow keys
+    "min_radius": 5,          # Adjustable with 1/2 keys
+    "max_radius": 50,         # Adjustable with 3/4 keys
+    "roi_x_min": 150,         # Adjustable with q/w keys
+    "roi_x_max": 1100,        # Adjustable with e/r keys
+    "roi_y_min": 150,         # Adjustable with a/s keys
+    "roi_y_max": 600,         # Adjustable with d/f keys
     
-    # Field of Interest (ROI) - crop area for processing
-    "field_of_interest": {
-        "x_min": 150,    # Left boundary
-        "x_max": 1100,   # Right boundary  
-        "y_min": 150,    # Top boundary
-        "y_max": 600,    # Bottom boundary
-        "enabled": True  # Enable/disable cropping
-    },
-    
-    # Reference position (where the LED should be detected)
-    "reference_position": {"x": 770, "y": 310},  # Center of typical 1280x960 frame
-    
-    # Camera center (for coordinate system)
-    "camera_center": {"x": 640, "y": 480},
-    
-    # Circle detection parameters
-    "circle_detection": {
-        "min_radius": 5,
-        "max_radius": 50,
-        "min_dist_between_circles": 30,
-        "canny_high_threshold": 100,
-        "accumulator_threshold": 20
-    },
-    
-    # Distance measurement
-    "pixels_per_unit": 1.0,  # Conversion factor from pixels to real units (mm, cm, etc.)
-    "distance_unit": "pixels",  # Unit name for display
-    
-    # Data saving
-    "save_data": True,
-    "data_filename": "circle_detection_data.json",
-    "save_interval_seconds": 1.0,  # Save data every N seconds
-    
-    # Display settings
+    # Fixed parameters
+    "accumulator_threshold": 10,  # Reduced from 20 to be less strict
     "display_width": 1280,
     "display_height": 720,
     "show_binary_frame": True,
-    "show_detection_info": True
+    "show_detection_info": True,
+    "save_data": True,
+    "data_filename": "circle_detection_data.json"
 }
 
 class CircleDetector:
@@ -80,7 +57,6 @@ class CircleDetector:
         
     def init_camera(self):
         """Initialize camera connection"""
-        print(f"Connecting to camera: {self.rtsp_url}")
         self.cap = cv2.VideoCapture(self.rtsp_url)
         
         # Set camera properties for better performance
@@ -90,8 +66,6 @@ class CircleDetector:
         
         if not self.cap.isOpened():
             raise Exception("Failed to connect to camera")
-        
-        print("✅ Camera connected successfully")
     
     def mouse_callback(self, event, x, y, flags, param):
         """Mouse callback function to track cursor position"""
@@ -121,36 +95,24 @@ class CircleDetector:
             print(f"Use these coordinates to update reference position in config file")
     
     def apply_binary_threshold(self, frame):
-        """Apply binary threshold to frame with optional ROI cropping"""
+        """Apply binary threshold to frame with ROI cropping"""
         # Convert to grayscale
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-        # Apply field of interest cropping if enabled
-        if self.config["field_of_interest"]["enabled"]:
-            x_min = self.config["field_of_interest"]["x_min"]
-            x_max = self.config["field_of_interest"]["x_max"]
-            y_min = self.config["field_of_interest"]["y_min"]
-            y_max = self.config["field_of_interest"]["y_max"]
-            
-            # Create a mask for the ROI
-            roi_mask = np.zeros_like(gray)
-            roi_mask[y_min:y_max, x_min:x_max] = 255
-            
-            # Apply mask to grayscale image
-            gray_roi = cv2.bitwise_and(gray, roi_mask)
-        else:
-            gray_roi = gray
+        # Apply ROI cropping
+        roi_mask = np.zeros_like(gray)
+        roi_mask[self.config["roi_y_min"]:self.config["roi_y_max"], 
+                 self.config["roi_x_min"]:self.config["roi_x_max"]] = 255
         
-        # Apply binary threshold - Fixed to use the actual parameter value
+        # Apply mask to grayscale image
+        gray_roi = cv2.bitwise_and(gray, roi_mask)
+        
+        # Apply binary threshold
         threshold_value = self.config["binary_threshold"]
-        _, binary = cv2.threshold(gray_roi, 
-                                 threshold_value, 
-                                 255, 
-                                 self.config["binary_threshold_type"])
+        _, binary = cv2.threshold(gray_roi, threshold_value, 255, cv2.THRESH_BINARY)
         
         # Debug: Print threshold value occasionally to verify it's changing
-        if hasattr(self, 'frame_count') and self.frame_count % 60 == 0:  # Every 60 frames
-            print(f"Current binary threshold: {threshold_value}")
+        # Removed excessive debug printing
         
         return binary
     
@@ -160,11 +122,11 @@ class CircleDetector:
             binary_frame,
             cv2.HOUGH_GRADIENT,
             dp=1,
-            minDist=self.config["circle_detection"]["min_dist_between_circles"],
-            param1=self.config["circle_detection"]["canny_high_threshold"],
-            param2=self.config["circle_detection"]["accumulator_threshold"],
-            minRadius=self.config["circle_detection"]["min_radius"],
-            maxRadius=self.config["circle_detection"]["max_radius"]
+            minDist=20,  # Reduced from 30 - allow closer circles
+            param1=50,   # Reduced from 100 - less strict edge detection
+            param2=self.config["accumulator_threshold"],
+            minRadius=self.config["min_radius"],
+            maxRadius=self.config["max_radius"]
         )
         
         if circles is not None:
@@ -174,15 +136,14 @@ class CircleDetector:
     
     def calculate_distance(self, circle_center):
         """Calculate distance from circle center to reference position"""
-        ref_x = self.config["reference_position"]["x"]
-        ref_y = self.config["reference_position"]["y"]
+        ref_x = self.config["reference_x"]
+        ref_y = self.config["reference_y"]
         
         distance_pixels = np.sqrt((circle_center[0] - ref_x)**2 + (circle_center[1] - ref_y)**2)
-        distance_units = distance_pixels * self.config["pixels_per_unit"]
         
         return {
             "distance_pixels": float(distance_pixels),
-            "distance_units": float(distance_units),
+            "distance_units": float(distance_pixels),  # Using pixels as units
             "circle_x": int(circle_center[0]),
             "circle_y": int(circle_center[1]),
             "ref_x": ref_x,
@@ -195,7 +156,7 @@ class CircleDetector:
             return
             
         current_time = time.time()
-        if current_time - self.last_save_time >= self.config["save_interval_seconds"]:
+        if current_time - self.last_save_time >= 1.0:  # Save every second
             # Add timestamp to data
             timestamped_data = {
                 "timestamp": datetime.now().isoformat(),
@@ -209,7 +170,7 @@ class CircleDetector:
             try:
                 with open(self.config["data_filename"], 'w') as f:
                     json.dump(self.data_log, f, indent=2)
-                print(f"Data saved: {len(self.data_log)} entries")
+                # Removed excessive save printing
             except Exception as e:
                 print(f"Error saving data: {e}")
             
@@ -217,28 +178,17 @@ class CircleDetector:
     
     def draw_detection_info(self, frame, binary_frame, circles, detection_data):
         """Draw detection information on frames"""
-        # Draw field of interest (ROI) boundaries if enabled
-        if self.config["field_of_interest"]["enabled"]:
-            x_min = self.config["field_of_interest"]["x_min"]
-            x_max = self.config["field_of_interest"]["x_max"]
-            y_min = self.config["field_of_interest"]["y_min"]
-            y_max = self.config["field_of_interest"]["y_max"]
-            
-            # Draw ROI rectangle
-            cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (255, 0, 255), 2)  # Magenta rectangle
-            cv2.putText(frame, "ROI", (x_min + 5, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255), 2)
+        # Draw ROI boundaries
+        cv2.rectangle(frame, 
+                     (self.config["roi_x_min"], self.config["roi_y_min"]), 
+                     (self.config["roi_x_max"], self.config["roi_y_max"]), 
+                     (255, 255, 0), 2)  # Yellow ROI rectangle
         
         # Draw reference position
-        ref_x = self.config["reference_position"]["x"]
-        ref_y = self.config["reference_position"]["y"]
+        ref_x = self.config["reference_x"]
+        ref_y = self.config["reference_y"]
         cv2.circle(frame, (ref_x, ref_y), 10, (0, 255, 0), 2)  # Green circle
         cv2.putText(frame, "REF", (ref_x + 15, ref_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-        
-        # Draw camera center
-        center_x = self.config["camera_center"]["x"]
-        center_y = self.config["camera_center"]["y"]
-        cv2.circle(frame, (center_x, center_y), 5, (255, 0, 0), 2)  # Blue circle
-        cv2.putText(frame, "CENTER", (center_x + 10, center_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
         
         # Draw detected circles
         for circle in circles:
@@ -252,14 +202,20 @@ class CircleDetector:
         # Display detection information
         if self.config["show_detection_info"]:
             info_y = 30
-            cv2.putText(frame, f"Circles detected: {len(circles)}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            cv2.putText(frame, f"Circles: {len(circles)}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
             info_y += 25
             cv2.putText(frame, f"Binary threshold: {self.config['binary_threshold']}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
+            info_y += 25
+            cv2.putText(frame, f"Reference: ({ref_x}, {ref_y})", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            
+            info_y += 25
+            cv2.putText(frame, f"Radius: {self.config['min_radius']}-{self.config['max_radius']}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            
             if detection_data and "distance_units" in detection_data:
                 info_y += 25
-                cv2.putText(frame, f"Distance: {detection_data['distance_units']:.2f} {self.config['distance_unit']}", 
+                cv2.putText(frame, f"Distance: {detection_data['distance_units']:.2f} px", 
                            (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                 
                 info_y += 25
@@ -280,15 +236,29 @@ class CircleDetector:
     def run(self):
         """Main detection loop"""
         print("Starting circle detection...")
-        print(f"Reference position: ({self.config['reference_position']['x']}, {self.config['reference_position']['y']})")
-        print(f"Binary threshold: {self.config['binary_threshold']}")
-        print("Press 'q' or ESC to quit")
-        print("Click on the video window to get coordinates for configuration")
-        print("Keyboard controls: '+' / '-' to adjust binary threshold, 'r' to reload config")
+        print(f"Initial settings - Reference: ({self.config['reference_x']}, {self.config['reference_y']}), Binary threshold: {self.config['binary_threshold']}")
+        print("="*50)
+        print("KEYBOARD CONTROLS:")
+        print("  +/- : Adjust binary threshold")
+        print("  Arrow keys : Move reference position")
+        print("  1/2 : Adjust min radius")
+        print("  3/4 : Adjust max radius")
+        print("  u/i/o/p : Adjust ROI X borders")
+        print("  j/k/l/; : Adjust ROI Y borders")
+        print("  s : Save frames")
+        print("  c : Reload config file")
+        print("  q/ESC : Quit")
+        print("="*50)
+        print("*** CLICK ON THE VIDEO WINDOW TO ENABLE KEYBOARD CONTROLS ***")
+        print("="*50)
         
         # Create window and set mouse callback
-        cv2.namedWindow("Circle Detection - Live Stream", cv2.WINDOW_AUTOSIZE)
-        cv2.setMouseCallback("Circle Detection - Live Stream", self.mouse_callback)
+        window_name = "Circle Detection - Live Stream"
+        cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
+        cv2.setMouseCallback(window_name, self.mouse_callback)
+        
+        # Ensure window is focused
+        cv2.moveWindow(window_name, 100, 100)  # Move window to ensure it's visible
         
         while True:
             ret, frame = self.cap.read()
@@ -308,8 +278,8 @@ class CircleDetector:
             detection_data = {}
             if len(circles) > 0:
                 # Use the circle closest to reference position
-                ref_x = self.config["reference_position"]["x"]
-                ref_y = self.config["reference_position"]["y"]
+                ref_x = self.config["reference_x"]
+                ref_y = self.config["reference_y"]
                 
                 distances_to_ref = [np.sqrt((c[0] - ref_x)**2 + (c[1] - ref_y)**2) for c in circles]
                 closest_circle_idx = np.argmin(distances_to_ref)
@@ -338,36 +308,97 @@ class CircleDetector:
                                        (self.config["display_width"], self.config["display_height"]))
             
             # Show frame
-            cv2.imshow("Circle Detection - Live Stream", display_resized)
+            cv2.imshow(window_name, display_resized)
             
-            # Handle keyboard input
+            # Handle keyboard input with comprehensive controls
             key = cv2.waitKey(1) & 0xFF
-            if key == ord('q') or key == 27:  # 'q' or ESC
+            
+            if key == 27 or key == ord('q'):  # ESC or 'q' to quit
                 break
-            elif key == ord('s'):  # 's' to save current frame
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                cv2.imwrite(f"frame_{timestamp}.jpg", frame)
-                cv2.imwrite(f"binary_{timestamp}.jpg", binary_frame)
-                print(f"Frames saved with timestamp {timestamp}")
+                
+            # Binary threshold controls
             elif key == ord('+') or key == ord('='):  # '+' to increase threshold
                 self.config["binary_threshold"] = min(255, self.config["binary_threshold"] + 5)
-                print(f"Binary threshold increased to: {self.config['binary_threshold']}")
             elif key == ord('-') or key == ord('_'):  # '-' to decrease threshold
                 self.config["binary_threshold"] = max(0, self.config["binary_threshold"] - 5)
-                print(f"Binary threshold decreased to: {self.config['binary_threshold']}")
-            elif key == ord('r'):  # 'r' to reload config
+                
+            # Reference position controls (Arrow keys)
+            elif key == 82:  # Up arrow
+                self.config["reference_y"] = max(0, self.config["reference_y"] - 5)
+            elif key == 84:  # Down arrow
+                self.config["reference_y"] = min(960, self.config["reference_y"] + 5)
+            elif key == 81:  # Left arrow
+                self.config["reference_x"] = max(0, self.config["reference_x"] - 5)
+            elif key == 83:  # Right arrow
+                self.config["reference_x"] = min(1280, self.config["reference_x"] + 5)
+                
+            # Radius controls
+            elif key == ord('1'):  # Decrease min radius
+                self.config["min_radius"] = max(1, self.config["min_radius"] - 1)
+            elif key == ord('2'):  # Increase min radius
+                self.config["min_radius"] = min(self.config["max_radius"] - 1, self.config["min_radius"] + 1)
+            elif key == ord('3'):  # Decrease max radius
+                self.config["max_radius"] = max(self.config["min_radius"] + 1, self.config["max_radius"] - 1)
+            elif key == ord('4'):  # Increase max radius
+                self.config["max_radius"] = min(100, self.config["max_radius"] + 1)
+                
+            # ROI controls (updated to avoid conflicts)
+            elif key == ord('u'):  # Decrease ROI x_min
+                self.config["roi_x_min"] = max(0, self.config["roi_x_min"] - 10)
+            elif key == ord('i'):  # Increase ROI x_min
+                self.config["roi_x_min"] = min(self.config["roi_x_max"] - 50, self.config["roi_x_min"] + 10)
+            elif key == ord('o'):  # Decrease ROI x_max
+                self.config["roi_x_max"] = max(self.config["roi_x_min"] + 50, self.config["roi_x_max"] - 10)
+            elif key == ord('p'):  # Increase ROI x_max
+                self.config["roi_x_max"] = min(1280, self.config["roi_x_max"] + 10)
+            elif key == ord('j'):  # Decrease ROI y_min
+                self.config["roi_y_min"] = max(0, self.config["roi_y_min"] - 10)
+            elif key == ord('k'):  # Increase ROI y_min
+                self.config["roi_y_min"] = min(self.config["roi_y_max"] - 50, self.config["roi_y_min"] + 10)
+            elif key == ord('l'):  # Decrease ROI y_max
+                self.config["roi_y_max"] = max(self.config["roi_y_min"] + 50, self.config["roi_y_max"] - 10)
+            elif key == ord(';'):  # Increase ROI y_max
+                self.config["roi_y_max"] = min(960, self.config["roi_y_max"] + 10)
+                
+            # Save frames and Config reload
+            elif key == ord('s'):  # 's' to save current frame
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                frame_filename = f"frame_{timestamp}.jpg"
+                binary_filename = f"binary_{timestamp}.jpg"
+                
+                cv2.imwrite(frame_filename, frame)
+                cv2.imwrite(binary_filename, binary_frame)
+                
+                # Get current working directory to show full path
+                import os
+                current_dir = os.getcwd()
+                print(f"📸 Frames saved:")
+                print(f"   Original: {os.path.join(current_dir, frame_filename)}")
+                print(f"   Binary:   {os.path.join(current_dir, binary_filename)}")
+                
+            elif key == ord('c'):  # 'c' to reload config
                 try:
                     with open("circle_detection_config.json", 'r') as f:
                         loaded_config = json.load(f)
                         self.config.update(loaded_config)
-                    print(f"Configuration reloaded. Binary threshold: {self.config['binary_threshold']}")
+                    print("🔄 Configuration reloaded from file")
                 except Exception as e:
-                    print(f"Error reloading config: {e}")
+                    print(f"❌ Error reloading config: {e}")
                 print(f"Frames saved with timestamp {timestamp}")
         
         # Cleanup
         self.cap.release()
         cv2.destroyAllWindows()
+        
+        # Print final parameter summary
+        print("\n" + "="*50)
+        print("FINAL PARAMETER SETTINGS:")
+        print("="*50)
+        print(f"Binary threshold: {self.config['binary_threshold']}")
+        print(f"Reference position: ({self.config['reference_x']}, {self.config['reference_y']})")
+        print(f"Circle radius range: {self.config['min_radius']} - {self.config['max_radius']}")
+        print(f"ROI boundaries: X({self.config['roi_x_min']}-{self.config['roi_x_max']}), Y({self.config['roi_y_min']}-{self.config['roi_y_max']})")
+        print(f"Total data entries saved: {len(self.data_log)}")
         print("Detection stopped")
 
 def load_config(config_file="circle_detection_config.json"):
@@ -377,12 +408,10 @@ def load_config(config_file="circle_detection_config.json"):
             loaded_config = json.load(f)
             # Update default config with loaded values
             CONFIG.update(loaded_config)
-            print(f"Configuration loaded from {config_file}")
     except FileNotFoundError:
         # Save default config
         with open(config_file, 'w') as f:
             json.dump(CONFIG, f, indent=2)
-        print(f"Default configuration saved to {config_file}")
     except Exception as e:
         print(f"Error loading config: {e}, using default values")
     

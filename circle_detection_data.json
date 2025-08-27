@@ -1,62 +1,372 @@
 [
   {
-    "timestamp": "2025-08-27T14:23:21.005983",
-    "unix_time": 1756293801.0059836,
-    "distance_pixels": 118.96217886370441,
-    "distance_units": 118.96217886370441,
-    "circle_x": 674,
-    "circle_y": 366,
-    "ref_x": 640,
-    "ref_y": 480
+    "timestamp": "2025-08-27T15:42:06.903083",
+    "unix_time": 1756298526.9030838,
+    "distance_pixels": 168.34488409215172,
+    "distance_units": 168.34488409215172,
+    "circle_x": 654,
+    "circle_y": 188,
+    "ref_x": 770,
+    "ref_y": 310
   },
   {
-    "timestamp": "2025-08-27T14:23:22.014857",
-    "unix_time": 1756293802.014858,
-    "distance_pixels": 118.40608092492548,
-    "distance_units": 118.40608092492548,
-    "circle_x": 672,
-    "circle_y": 366,
-    "ref_x": 640,
-    "ref_y": 480
+    "timestamp": "2025-08-27T15:42:07.937807",
+    "unix_time": 1756298527.9378076,
+    "distance_pixels": 64.62197768561404,
+    "distance_units": 64.62197768561404,
+    "circle_x": 794,
+    "circle_y": 370,
+    "ref_x": 770,
+    "ref_y": 310
   },
   {
-    "timestamp": "2025-08-27T14:23:23.042793",
-    "unix_time": 1756293803.0427938,
-    "distance_pixels": 120.81390648431164,
-    "distance_units": 120.81390648431164,
-    "circle_x": 680,
-    "circle_y": 366,
-    "ref_x": 640,
-    "ref_y": 480
+    "timestamp": "2025-08-27T15:42:08.981949",
+    "unix_time": 1756298528.9819493,
+    "distance_pixels": 59.665735560705194,
+    "distance_units": 59.665735560705194,
+    "circle_x": 816,
+    "circle_y": 348,
+    "ref_x": 770,
+    "ref_y": 310
   },
   {
-    "timestamp": "2025-08-27T14:23:24.064541",
-    "unix_time": 1756293804.0645416,
-    "distance_pixels": 355.735857062512,
-    "distance_units": 355.735857062512,
-    "circle_x": 452,
-    "circle_y": 178,
-    "ref_x": 640,
-    "ref_y": 480
+    "timestamp": "2025-08-27T15:42:10.014187",
+    "unix_time": 1756298530.0141878,
+    "distance_pixels": 65.39113089708727,
+    "distance_units": 65.39113089708727,
+    "circle_x": 796,
+    "circle_y": 370,
+    "ref_x": 770,
+    "ref_y": 310
   },
   {
-    "timestamp": "2025-08-27T14:23:25.102854",
-    "unix_time": 1756293805.1028545,
-    "distance_pixels": 411.69406116678437,
-    "distance_units": 411.69406116678437,
-    "circle_x": 316,
-    "circle_y": 226,
-    "ref_x": 640,
-    "ref_y": 480
+    "timestamp": "2025-08-27T15:42:11.047609",
+    "unix_time": 1756298531.0476093,
+    "distance_pixels": 62.76941930590086,
+    "distance_units": 62.76941930590086,
+    "circle_x": 794,
+    "circle_y": 368,
+    "ref_x": 770,
+    "ref_y": 310
   },
   {
-    "timestamp": "2025-08-27T14:23:26.125355",
-    "unix_time": 1756293806.1253555,
-    "distance_pixels": 406.9889433387595,
-    "distance_units": 406.9889433387595,
-    "circle_x": 322,
-    "circle_y": 226,
-    "ref_x": 640,
-    "ref_y": 480
+    "timestamp": "2025-08-27T15:42:12.080751",
+    "unix_time": 1756298532.0807517,
+    "distance_pixels": 64.62197768561404,
+    "distance_units": 64.62197768561404,
+    "circle_x": 794,
+    "circle_y": 370,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:13.181318",
+    "unix_time": 1756298533.181319,
+    "distance_pixels": 63.90618123468183,
+    "distance_units": 63.90618123468183,
+    "circle_x": 792,
+    "circle_y": 370,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:14.197567",
+    "unix_time": 1756298534.1975675,
+    "distance_pixels": 65.39113089708727,
+    "distance_units": 65.39113089708727,
+    "circle_x": 796,
+    "circle_y": 370,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:15.257548",
+    "unix_time": 1756298535.2575488,
+    "distance_pixels": 64.62197768561404,
+    "distance_units": 64.62197768561404,
+    "circle_x": 794,
+    "circle_y": 370,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:16.280378",
+    "unix_time": 1756298536.2803788,
+    "distance_pixels": 63.56099432828282,
+    "distance_units": 63.56099432828282,
+    "circle_x": 796,
+    "circle_y": 368,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:17.313482",
+    "unix_time": 1756298537.3134825,
+    "distance_pixels": 63.56099432828282,
+    "distance_units": 63.56099432828282,
+    "circle_x": 796,
+    "circle_y": 368,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:18.339668",
+    "unix_time": 1756298538.3396685,
+    "distance_pixels": 63.56099432828282,
+    "distance_units": 63.56099432828282,
+    "circle_x": 796,
+    "circle_y": 368,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:19.363396",
+    "unix_time": 1756298539.363397,
+    "distance_pixels": 64.62197768561404,
+    "distance_units": 64.62197768561404,
+    "circle_x": 794,
+    "circle_y": 370,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:20.366716",
+    "unix_time": 1756298540.366716,
+    "distance_pixels": 64.62197768561404,
+    "distance_units": 64.62197768561404,
+    "circle_x": 794,
+    "circle_y": 370,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:21.408449",
+    "unix_time": 1756298541.40845,
+    "distance_pixels": 65.7875368135941,
+    "distance_units": 65.7875368135941,
+    "circle_x": 792,
+    "circle_y": 372,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:22.423151",
+    "unix_time": 1756298542.423151,
+    "distance_pixels": 54.589376255824725,
+    "distance_units": 54.589376255824725,
+    "circle_x": 778,
+    "circle_y": 364,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:23.459133",
+    "unix_time": 1756298543.4591336,
+    "distance_pixels": 52.952809179494906,
+    "distance_units": 52.952809179494906,
+    "circle_x": 780,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:24.724364",
+    "unix_time": 1756298544.724364,
+    "distance_pixels": 52.952809179494906,
+    "distance_units": 52.952809179494906,
+    "circle_x": 780,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:25.729095",
+    "unix_time": 1756298545.7290957,
+    "distance_pixels": 52.61178575186362,
+    "distance_units": 52.61178575186362,
+    "circle_x": 778,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:26.730553",
+    "unix_time": 1756298546.7305532,
+    "distance_pixels": 52.61178575186362,
+    "distance_units": 52.61178575186362,
+    "circle_x": 778,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:27.736490",
+    "unix_time": 1756298547.7364907,
+    "distance_pixels": 52.61178575186362,
+    "distance_units": 52.61178575186362,
+    "circle_x": 778,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:28.763505",
+    "unix_time": 1756298548.7635057,
+    "distance_pixels": 52.952809179494906,
+    "distance_units": 52.952809179494906,
+    "circle_x": 780,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:29.774073",
+    "unix_time": 1756298549.7740734,
+    "distance_pixels": 52.952809179494906,
+    "distance_units": 52.952809179494906,
+    "circle_x": 780,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:30.801442",
+    "unix_time": 1756298550.8014429,
+    "distance_pixels": 52.952809179494906,
+    "distance_units": 52.952809179494906,
+    "circle_x": 780,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:31.846032",
+    "unix_time": 1756298551.8460324,
+    "distance_pixels": 52.952809179494906,
+    "distance_units": 52.952809179494906,
+    "circle_x": 780,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:32.872594",
+    "unix_time": 1756298552.8725946,
+    "distance_pixels": 52.61178575186362,
+    "distance_units": 52.61178575186362,
+    "circle_x": 778,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:33.879281",
+    "unix_time": 1756298553.8792808,
+    "distance_pixels": 52.952809179494906,
+    "distance_units": 52.952809179494906,
+    "circle_x": 780,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:34.879343",
+    "unix_time": 1756298554.879343,
+    "distance_pixels": 54.589376255824725,
+    "distance_units": 54.589376255824725,
+    "circle_x": 778,
+    "circle_y": 364,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:35.914796",
+    "unix_time": 1756298555.9147964,
+    "distance_pixels": 52.952809179494906,
+    "distance_units": 52.952809179494906,
+    "circle_x": 780,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:36.946395",
+    "unix_time": 1756298556.9463954,
+    "distance_pixels": 52.952809179494906,
+    "distance_units": 52.952809179494906,
+    "circle_x": 780,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:37.973078",
+    "unix_time": 1756298557.9730785,
+    "distance_pixels": 52.61178575186362,
+    "distance_units": 52.61178575186362,
+    "circle_x": 778,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:39.198844",
+    "unix_time": 1756298559.1988447,
+    "distance_pixels": 132.06059215375342,
+    "distance_units": 132.06059215375342,
+    "circle_x": 846,
+    "circle_y": 418,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:40.243292",
+    "unix_time": 1756298560.243292,
+    "distance_pixels": 52.61178575186362,
+    "distance_units": 52.61178575186362,
+    "circle_x": 778,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:41.264702",
+    "unix_time": 1756298561.2647028,
+    "distance_pixels": 52.61178575186362,
+    "distance_units": 52.61178575186362,
+    "circle_x": 778,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:42.274125",
+    "unix_time": 1756298562.2741256,
+    "distance_pixels": 52.952809179494906,
+    "distance_units": 52.952809179494906,
+    "circle_x": 780,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:43.276591",
+    "unix_time": 1756298563.276591,
+    "distance_pixels": 52.952809179494906,
+    "distance_units": 52.952809179494906,
+    "circle_x": 780,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T15:42:44.295135",
+    "unix_time": 1756298564.2951355,
+    "distance_pixels": 52.952809179494906,
+    "distance_units": 52.952809179494906,
+    "circle_x": 780,
+    "circle_y": 362,
+    "ref_x": 770,
+    "ref_y": 310
   }
 ]
