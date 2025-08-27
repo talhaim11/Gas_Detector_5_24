@@ -178,17 +178,31 @@ class CircleDetector:
     
     def draw_detection_info(self, frame, binary_frame, circles, detection_data):
         """Draw detection information on frames"""
+        # Get frame dimensions for center calculation
+        frame_height, frame_width = frame.shape[:2]
+        center_x = frame_width // 2
+        center_y = frame_height // 2
+        
         # Draw ROI boundaries
         cv2.rectangle(frame, 
                      (self.config["roi_x_min"], self.config["roi_y_min"]), 
                      (self.config["roi_x_max"], self.config["roi_y_max"]), 
                      (255, 255, 0), 2)  # Yellow ROI rectangle
         
+        # Draw camera center
+        cv2.circle(frame, (center_x, center_y), 8, (255, 0, 255), 2)  # Magenta circle
+        cv2.putText(frame, "CENTER", (center_x + 15, center_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255), 2)
+        
         # Draw reference position
         ref_x = self.config["reference_x"]
         ref_y = self.config["reference_y"]
         cv2.circle(frame, (ref_x, ref_y), 10, (0, 255, 0), 2)  # Green circle
         cv2.putText(frame, "REF", (ref_x + 15, ref_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        
+        # Draw line from center to reference and calculate distance components
+        cv2.line(frame, (center_x, center_y), (ref_x, ref_y), (255, 0, 255), 2)  # Magenta line
+        center_to_ref_x = ref_x - center_x  # X distance (positive = right)
+        center_to_ref_y = ref_y - center_y  # Y distance (positive = down)
         
         # Draw detected circles
         for circle in circles:
@@ -209,6 +223,15 @@ class CircleDetector:
             
             info_y += 25
             cv2.putText(frame, f"Reference: ({ref_x}, {ref_y})", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            
+            info_y += 25
+            cv2.putText(frame, f"Center: ({center_x}, {center_y})", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            
+            info_y += 25
+            cv2.putText(frame, f"Center-to-Ref X: {center_to_ref_x:+.0f} px", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            
+            info_y += 25
+            cv2.putText(frame, f"Center-to-Ref Y: {center_to_ref_y:+.0f} px", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
             info_y += 25
             cv2.putText(frame, f"Radius: {self.config['min_radius']}-{self.config['max_radius']}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
@@ -241,8 +264,8 @@ class CircleDetector:
         print("KEYBOARD CONTROLS:")
         print("  +/- : Adjust binary threshold")
         print("  Arrow keys : Move reference position")
-        print("  1/2 : Adjust min radius")
-        print("  3/4 : Adjust max radius")
+        print("  1/2 : Adjust min radius (decrease/increase)")
+        print("  3/4 : Adjust max radius (decrease/increase)")
         print("  u/i/o/p : Adjust ROI X borders")
         print("  j/k/l/; : Adjust ROI Y borders")
         print("  s : Save frames")
@@ -312,6 +335,10 @@ class CircleDetector:
             
             # Handle keyboard input with comprehensive controls
             key = cv2.waitKey(1) & 0xFF
+            
+            # Debug: Only show non-number and non-symbol keys for troubleshooting
+            if key != 255 and key != 0 and not (ord('0') <= key <= ord('9')) and key not in [ord('+'), ord('='), ord('-'), ord('_'), 27]:
+                print(f"Letter/Arrow key detected: {key} (expected: u={ord('u')}, i={ord('i')}, up=82, down=84, left=81, right=83)")
             
             if key == 27 or key == ord('q'):  # ESC or 'q' to quit
                 break
