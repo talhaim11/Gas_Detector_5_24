@@ -204,14 +204,32 @@ class CircleDetector:
         center_to_ref_x = ref_x - center_x  # X distance (positive = right)
         center_to_ref_y = ref_y - center_y  # Y distance (positive = down)
         
-        # Draw detected circles
-        for circle in circles:
+        # Draw detected circles with individual information
+        circle_info_list = []
+        for i, circle in enumerate(circles):
             x, y, r = circle
             cv2.circle(frame, (x, y), r, (0, 0, 255), 2)  # Red circle
             cv2.circle(frame, (x, y), 2, (0, 0, 255), 3)   # Red center dot
             
             # Draw line from circle to reference
             cv2.line(frame, (x, y), (ref_x, ref_y), (255, 255, 0), 1)  # Yellow line
+            
+            # Calculate distance components from circle to reference
+            circle_to_ref_x = ref_x - x
+            circle_to_ref_y = ref_y - y
+            
+            # Label the circle with its number
+            cv2.putText(frame, f"C{i+1}", (x + r + 5, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            
+            # Store circle information
+            circle_info_list.append({
+                'id': i+1,
+                'x': x,
+                'y': y,
+                'radius': r,
+                'to_ref_x': circle_to_ref_x,
+                'to_ref_y': circle_to_ref_y
+            })
         
         # Display detection information
         if self.config["show_detection_info"]:
@@ -236,14 +254,15 @@ class CircleDetector:
             info_y += 25
             cv2.putText(frame, f"Radius: {self.config['min_radius']}-{self.config['max_radius']}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
-            if detection_data and "distance_units" in detection_data:
+            # Display information for each detected circle
+            for circle_info in circle_info_list:
                 info_y += 25
-                cv2.putText(frame, f"Distance: {detection_data['distance_units']:.2f} px", 
-                           (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                cv2.putText(frame, f"C{circle_info['id']}: ({circle_info['x']},{circle_info['y']}) R={circle_info['radius']}", 
+                           (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
                 
-                info_y += 25
-                cv2.putText(frame, f"Circle pos: ({detection_data['circle_x']}, {detection_data['circle_y']})", 
-                           (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                info_y += 20
+                cv2.putText(frame, f"  ->Ref X:{circle_info['to_ref_x']:+.0f} Y:{circle_info['to_ref_y']:+.0f}", 
+                           (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
         
         # Display mouse cursor position (always show)
         info_y = frame.shape[0] - 60  # Position near bottom of frame
@@ -263,7 +282,7 @@ class CircleDetector:
         print("="*50)
         print("KEYBOARD CONTROLS:")
         print("  +/- : Adjust binary threshold")
-        print("  Arrow keys : Move reference position")
+        print("  Arrow keys or T/F/G/H : Move reference position")
         print("  1/2 : Adjust min radius (decrease/increase)")
         print("  3/4 : Adjust max radius (decrease/increase)")
         print("  u/i/o/p : Adjust ROI X borders")
@@ -298,18 +317,29 @@ class CircleDetector:
             circles = self.detect_circles(binary_frame)
             
             # Process detected circles
-            detection_data = {}
+            detection_data = {
+                "total_circles": len(circles),
+                "circles": []
+            }
+            
             if len(circles) > 0:
-                # Use the circle closest to reference position
                 ref_x = self.config["reference_x"]
                 ref_y = self.config["reference_y"]
                 
+                # Process each circle
+                for i, circle in enumerate(circles):
+                    circle_data = self.calculate_distance(circle)
+                    circle_data["circle_id"] = i + 1
+                    detection_data["circles"].append(circle_data)
+                
+                # For backward compatibility, also include the closest circle as main detection
                 distances_to_ref = [np.sqrt((c[0] - ref_x)**2 + (c[1] - ref_y)**2) for c in circles]
                 closest_circle_idx = np.argmin(distances_to_ref)
                 closest_circle = circles[closest_circle_idx]
                 
-                # Calculate distance data
-                detection_data = self.calculate_distance(closest_circle[:2])
+                # Calculate distance data for closest circle (for compatibility)
+                main_detection = self.calculate_distance(closest_circle)
+                detection_data.update(main_detection)  # Add main detection data
                 
                 # Save data
                 self.save_data(detection_data)
@@ -336,10 +366,6 @@ class CircleDetector:
             # Handle keyboard input with comprehensive controls
             key = cv2.waitKey(1) & 0xFF
             
-            # Debug: Only show non-number and non-symbol keys for troubleshooting
-            if key != 255 and key != 0 and not (ord('0') <= key <= ord('9')) and key not in [ord('+'), ord('='), ord('-'), ord('_'), 27]:
-                print(f"Letter/Arrow key detected: {key} (expected: u={ord('u')}, i={ord('i')}, up=82, down=84, left=81, right=83)")
-            
             if key == 27 or key == ord('q'):  # ESC or 'q' to quit
                 break
                 
@@ -349,17 +375,15 @@ class CircleDetector:
             elif key == ord('-') or key == ord('_'):  # '-' to decrease threshold
                 self.config["binary_threshold"] = max(0, self.config["binary_threshold"] - 5)
                 
-            # Reference position controls (Arrow keys)
-            elif key == 82:  # Up arrow
+            # Reference position controls (Arrow keys + TFGH alternative for compatibility)
+            elif key == 82 or key == 0 or key == ord('t') or key == ord('T'):  # Up arrow or T
                 self.config["reference_y"] = max(0, self.config["reference_y"] - 5)
-            elif key == 84:  # Down arrow
+            elif key == 84 or key == 1 or key == ord('g') or key == ord('G'):  # Down arrow or G
                 self.config["reference_y"] = min(960, self.config["reference_y"] + 5)
-            elif key == 81:  # Left arrow
+            elif key == 81 or key == 2 or key == ord('f') or key == ord('F'):  # Left arrow or F
                 self.config["reference_x"] = max(0, self.config["reference_x"] - 5)
-            elif key == 83:  # Right arrow
-                self.config["reference_x"] = min(1280, self.config["reference_x"] + 5)
-                
-            # Radius controls
+            elif key == 83 or key == 3 or key == ord('h') or key == ord('H'):  # Right arrow or H
+                self.config["reference_x"] = min(1280, self.config["reference_x"] + 5)            # Radius controls
             elif key == ord('1'):  # Decrease min radius
                 self.config["min_radius"] = max(1, self.config["min_radius"] - 1)
             elif key == ord('2'):  # Increase min radius

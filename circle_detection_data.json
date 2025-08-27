@@ -1,882 +1,1094 @@
 [
   {
-    "timestamp": "2025-08-27T16:11:49.316313",
-    "unix_time": 1756300309.316313,
-    "distance_pixels": 258.1937257177254,
-    "distance_units": 258.1937257177254,
-    "circle_x": 860,
+    "timestamp": "2025-08-27T16:18:20.139506",
+    "unix_time": 1756300700.1395063,
+    "total_circles": 2,
+    "circles": [
+      {
+        "distance_pixels": 274.64158461529456,
+        "distance_units": 274.64158461529456,
+        "circle_x": 808,
+        "circle_y": 582,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 254.55844122715712,
+        "distance_units": 254.55844122715712,
+        "circle_x": 806,
+        "circle_y": 562,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 2
+      }
+    ],
+    "distance_pixels": 254.55844122715712,
+    "distance_units": 254.55844122715712,
+    "circle_x": 806,
+    "circle_y": 562,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T16:18:21.174823",
+    "unix_time": 1756300701.1748228,
+    "total_circles": 4,
+    "circles": [
+      {
+        "distance_pixels": 259.20841035738016,
+        "distance_units": 259.20841035738016,
+        "circle_x": 800,
+        "circle_y": 568,
+        "ref_x": 775,
+        "ref_y": 310,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 276.4868893817571,
+        "distance_units": 276.4868893817571,
+        "circle_x": 812,
+        "circle_y": 584,
+        "ref_x": 775,
+        "ref_y": 310,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 338.3031185194721,
+        "distance_units": 338.3031185194721,
+        "circle_x": 1032,
+        "circle_y": 530,
+        "ref_x": 775,
+        "ref_y": 310,
+        "circle_id": 3
+      },
+      {
+        "distance_pixels": 243.14810301542556,
+        "distance_units": 243.14810301542556,
+        "circle_x": 814,
+        "circle_y": 550,
+        "ref_x": 775,
+        "ref_y": 310,
+        "circle_id": 4
+      }
+    ],
+    "distance_pixels": 243.14810301542556,
+    "distance_units": 243.14810301542556,
+    "circle_x": 814,
+    "circle_y": 550,
+    "ref_x": 775,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-08-27T16:18:22.177465",
+    "unix_time": 1756300702.1774657,
+    "total_circles": 10,
+    "circles": [
+      {
+        "distance_pixels": 347.6147292621531,
+        "distance_units": 347.6147292621531,
+        "circle_x": 1060,
+        "circle_y": 526,
+        "ref_x": 780,
+        "ref_y": 320,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 236.7530358833863,
+        "distance_units": 236.7530358833863,
+        "circle_x": 816,
+        "circle_y": 554,
+        "ref_x": 780,
+        "ref_y": 320,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 358.13405311419353,
+        "distance_units": 358.13405311419353,
+        "circle_x": 1044,
+        "circle_y": 562,
+        "ref_x": 780,
+        "ref_y": 320,
+        "circle_id": 3
+      },
+      {
+        "distance_pixels": 220.22715545545242,
+        "distance_units": 220.22715545545242,
+        "circle_x": 994,
+        "circle_y": 372,
+        "ref_x": 780,
+        "ref_y": 320,
+        "circle_id": 4
+      },
+      {
+        "distance_pixels": 259.5149321330085,
+        "distance_units": 259.5149321330085,
+        "circle_x": 808,
+        "circle_y": 578,
+        "ref_x": 780,
+        "ref_y": 320,
+        "circle_id": 5
+      },
+      {
+        "distance_pixels": 369.82157860243905,
+        "distance_units": 369.82157860243905,
+        "circle_x": 1068,
+        "circle_y": 552,
+        "ref_x": 780,
+        "ref_y": 320,
+        "circle_id": 6
+      },
+      {
+        "distance_pixels": 279.0412155936825,
+        "distance_units": 279.0412155936825,
+        "circle_x": 938,
+        "circle_y": 550,
+        "ref_x": 780,
+        "ref_y": 320,
+        "circle_id": 7
+      },
+      {
+        "distance_pixels": 337.34255586866,
+        "distance_units": 337.34255586866,
+        "circle_x": 1034,
+        "circle_y": 542,
+        "ref_x": 780,
+        "ref_y": 320,
+        "circle_id": 8
+      },
+      {
+        "distance_pixels": 240.86510747719356,
+        "distance_units": 240.86510747719356,
+        "circle_x": 920,
+        "circle_y": 516,
+        "ref_x": 780,
+        "ref_y": 320,
+        "circle_id": 9
+      },
+      {
+        "distance_pixels": 234.07691043757393,
+        "distance_units": 234.07691043757393,
+        "circle_x": 786,
+        "circle_y": 554,
+        "ref_x": 780,
+        "ref_y": 320,
+        "circle_id": 10
+      }
+    ],
+    "distance_pixels": 220.22715545545242,
+    "distance_units": 220.22715545545242,
+    "circle_x": 994,
+    "circle_y": 372,
+    "ref_x": 780,
+    "ref_y": 320
+  },
+  {
+    "timestamp": "2025-08-27T16:18:23.186798",
+    "unix_time": 1756300703.1867986,
+    "total_circles": 3,
+    "circles": [
+      {
+        "distance_pixels": 251.79356624028344,
+        "distance_units": 251.79356624028344,
+        "circle_x": 810,
+        "circle_y": 580,
+        "ref_x": 780,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 227.90348834539589,
+        "distance_units": 227.90348834539589,
+        "circle_x": 934,
+        "circle_y": 498,
+        "ref_x": 780,
+        "ref_y": 330,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 248.96586111352696,
+        "distance_units": 248.96586111352696,
+        "circle_x": 952,
+        "circle_y": 510,
+        "ref_x": 780,
+        "ref_y": 330,
+        "circle_id": 3
+      }
+    ],
+    "distance_pixels": 227.90348834539589,
+    "distance_units": 227.90348834539589,
+    "circle_x": 934,
+    "circle_y": 498,
+    "ref_x": 780,
+    "ref_y": 330
+  },
+  {
+    "timestamp": "2025-08-27T16:18:24.195155",
+    "unix_time": 1756300704.1951556,
+    "total_circles": 4,
+    "circles": [
+      {
+        "distance_pixels": 256.8598839834668,
+        "distance_units": 256.8598839834668,
+        "circle_x": 806,
+        "circle_y": 586,
+        "ref_x": 785,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 228.0548179714693,
+        "distance_units": 228.0548179714693,
+        "circle_x": 790,
+        "circle_y": 558,
+        "ref_x": 785,
+        "ref_y": 330,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 312.70593214712125,
+        "distance_units": 312.70593214712125,
+        "circle_x": 1022,
+        "circle_y": 534,
+        "ref_x": 785,
+        "ref_y": 330,
+        "circle_id": 3
+      },
+      {
+        "distance_pixels": 94.57801012920498,
+        "distance_units": 94.57801012920498,
+        "circle_x": 706,
+        "circle_y": 382,
+        "ref_x": 785,
+        "ref_y": 330,
+        "circle_id": 4
+      }
+    ],
+    "distance_pixels": 94.57801012920498,
+    "distance_units": 94.57801012920498,
+    "circle_x": 706,
+    "circle_y": 382,
+    "ref_x": 785,
+    "ref_y": 330
+  },
+  {
+    "timestamp": "2025-08-27T16:18:25.217368",
+    "unix_time": 1756300705.2173688,
+    "total_circles": 6,
+    "circles": [
+      {
+        "distance_pixels": 251.24689052802225,
+        "distance_units": 251.24689052802225,
+        "circle_x": 810,
+        "circle_y": 580,
+        "ref_x": 785,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 228.0548179714693,
+        "distance_units": 228.0548179714693,
+        "circle_x": 790,
+        "circle_y": 558,
+        "ref_x": 785,
+        "ref_y": 330,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 223.8861317723811,
+        "distance_units": 223.8861317723811,
+        "circle_x": 814,
+        "circle_y": 552,
+        "ref_x": 785,
+        "ref_y": 330,
+        "circle_id": 3
+      },
+      {
+        "distance_pixels": 532.4856805586419,
+        "distance_units": 532.4856805586419,
+        "circle_x": 264,
+        "circle_y": 220,
+        "ref_x": 785,
+        "ref_y": 330,
+        "circle_id": 4
+      },
+      {
+        "distance_pixels": 228.23890991677996,
+        "distance_units": 228.23890991677996,
+        "circle_x": 838,
+        "circle_y": 552,
+        "ref_x": 785,
+        "ref_y": 330,
+        "circle_id": 5
+      },
+      {
+        "distance_pixels": 540.5339952306423,
+        "distance_units": 540.5339952306423,
+        "circle_x": 264,
+        "circle_y": 186,
+        "ref_x": 785,
+        "ref_y": 330,
+        "circle_id": 6
+      }
+    ],
+    "distance_pixels": 223.8861317723811,
+    "distance_units": 223.8861317723811,
+    "circle_x": 814,
     "circle_y": 552,
-    "ref_x": 770,
-    "ref_y": 310
+    "ref_x": 785,
+    "ref_y": 330
   },
   {
-    "timestamp": "2025-08-27T16:11:50.354253",
-    "unix_time": 1756300310.3542538,
-    "distance_pixels": 274.37201023428025,
-    "distance_units": 274.37201023428025,
-    "circle_x": 806,
+    "timestamp": "2025-08-27T16:18:26.236791",
+    "unix_time": 1756300706.2367911,
+    "total_circles": 4,
+    "circles": [
+      {
+        "distance_pixels": 254.3855341799136,
+        "distance_units": 254.3855341799136,
+        "circle_x": 804,
+        "circle_y": 584,
+        "ref_x": 790,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 237.39418695494632,
+        "distance_units": 237.39418695494632,
+        "circle_x": 940,
+        "circle_y": 514,
+        "ref_x": 790,
+        "ref_y": 330,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 220.90722034374522,
+        "distance_units": 220.90722034374522,
+        "circle_x": 810,
+        "circle_y": 550,
+        "ref_x": 790,
+        "ref_y": 330,
+        "circle_id": 3
+      },
+      {
+        "distance_pixels": 537.3788235500167,
+        "distance_units": 537.3788235500167,
+        "circle_x": 264,
+        "circle_y": 220,
+        "ref_x": 790,
+        "ref_y": 330,
+        "circle_id": 4
+      }
+    ],
+    "distance_pixels": 220.90722034374522,
+    "distance_units": 220.90722034374522,
+    "circle_x": 810,
+    "circle_y": 550,
+    "ref_x": 790,
+    "ref_y": 330
+  },
+  {
+    "timestamp": "2025-08-27T16:18:27.250980",
+    "unix_time": 1756300707.2509809,
+    "total_circles": 2,
+    "circles": [
+      {
+        "distance_pixels": 245.81497106563708,
+        "distance_units": 245.81497106563708,
+        "circle_x": 810,
+        "circle_y": 580,
+        "ref_x": 790,
+        "ref_y": 335,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 218.55205329623422,
+        "distance_units": 218.55205329623422,
+        "circle_x": 816,
+        "circle_y": 552,
+        "ref_x": 790,
+        "ref_y": 335,
+        "circle_id": 2
+      }
+    ],
+    "distance_pixels": 218.55205329623422,
+    "distance_units": 218.55205329623422,
+    "circle_x": 816,
+    "circle_y": 552,
+    "ref_x": 790,
+    "ref_y": 335
+  },
+  {
+    "timestamp": "2025-08-27T16:18:28.268227",
+    "unix_time": 1756300708.2682276,
+    "total_circles": 4,
+    "circles": [
+      {
+        "distance_pixels": 237.39418695494632,
+        "distance_units": 237.39418695494632,
+        "circle_x": 940,
+        "circle_y": 514,
+        "ref_x": 790,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 242.404620418011,
+        "distance_units": 242.404620418011,
+        "circle_x": 804,
+        "circle_y": 572,
+        "ref_x": 790,
+        "ref_y": 330,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 223.0874268084152,
+        "distance_units": 223.0874268084152,
+        "circle_x": 812,
+        "circle_y": 552,
+        "ref_x": 790,
+        "ref_y": 330,
+        "circle_id": 3
+      },
+      {
+        "distance_pixels": 537.3788235500167,
+        "distance_units": 537.3788235500167,
+        "circle_x": 264,
+        "circle_y": 220,
+        "ref_x": 790,
+        "ref_y": 330,
+        "circle_id": 4
+      }
+    ],
+    "distance_pixels": 223.0874268084152,
+    "distance_units": 223.0874268084152,
+    "circle_x": 812,
+    "circle_y": 552,
+    "ref_x": 790,
+    "ref_y": 330
+  },
+  {
+    "timestamp": "2025-08-27T16:18:29.270481",
+    "unix_time": 1756300709.2704813,
+    "total_circles": 3,
+    "circles": [
+      {
+        "distance_pixels": 229.0589443789524,
+        "distance_units": 229.0589443789524,
+        "circle_x": 812,
+        "circle_y": 558,
+        "ref_x": 790,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 250.64716236175505,
+        "distance_units": 250.64716236175505,
+        "circle_x": 808,
+        "circle_y": 580,
+        "ref_x": 790,
+        "ref_y": 330,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 272.26457720386617,
+        "distance_units": 272.26457720386617,
+        "circle_x": 802,
+        "circle_y": 602,
+        "ref_x": 790,
+        "ref_y": 330,
+        "circle_id": 3
+      }
+    ],
+    "distance_pixels": 229.0589443789524,
+    "distance_units": 229.0589443789524,
+    "circle_x": 812,
+    "circle_y": 558,
+    "ref_x": 790,
+    "ref_y": 330
+  },
+  {
+    "timestamp": "2025-08-27T16:18:30.300919",
+    "unix_time": 1756300710.300919,
+    "total_circles": 5,
+    "circles": [
+      {
+        "distance_pixels": 252.43811122728675,
+        "distance_units": 252.43811122728675,
+        "circle_x": 810,
+        "circle_y": 580,
+        "ref_x": 775,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 227.03523955544875,
+        "distance_units": 227.03523955544875,
+        "circle_x": 812,
+        "circle_y": 554,
+        "ref_x": 775,
+        "ref_y": 330,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 522.7054619955678,
+        "distance_units": 522.7054619955678,
+        "circle_x": 264,
+        "circle_y": 220,
+        "ref_x": 775,
+        "ref_y": 330,
+        "circle_id": 3
+      },
+      {
+        "distance_pixels": 311.4048811435042,
+        "distance_units": 311.4048811435042,
+        "circle_x": 1012,
+        "circle_y": 532,
+        "ref_x": 775,
+        "ref_y": 330,
+        "circle_id": 4
+      },
+      {
+        "distance_pixels": 344.4488350974641,
+        "distance_units": 344.4488350974641,
+        "circle_x": 1054,
+        "circle_y": 532,
+        "ref_x": 775,
+        "ref_y": 330,
+        "circle_id": 5
+      }
+    ],
+    "distance_pixels": 227.03523955544875,
+    "distance_units": 227.03523955544875,
+    "circle_x": 812,
+    "circle_y": 554,
+    "ref_x": 775,
+    "ref_y": 330
+  },
+  {
+    "timestamp": "2025-08-27T16:18:31.334200",
+    "unix_time": 1756300711.3342009,
+    "total_circles": 9,
+    "circles": [
+      {
+        "distance_pixels": 243.0740627874558,
+        "distance_units": 243.0740627874558,
+        "circle_x": 804,
+        "circle_y": 572,
+        "ref_x": 750,
+        "ref_y": 335,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 346.78091066262573,
+        "distance_units": 346.78091066262573,
+        "circle_x": 1034,
+        "circle_y": 534,
+        "ref_x": 750,
+        "ref_y": 335,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 243.1810025474852,
+        "distance_units": 243.1810025474852,
+        "circle_x": 826,
+        "circle_y": 566,
+        "ref_x": 750,
+        "ref_y": 335,
+        "circle_id": 3
+      },
+      {
+        "distance_pixels": 348.66172717979816,
+        "distance_units": 348.66172717979816,
+        "circle_x": 1048,
+        "circle_y": 516,
+        "ref_x": 750,
+        "ref_y": 335,
+        "circle_id": 4
+      },
+      {
+        "distance_pixels": 499.42066437022805,
+        "distance_units": 499.42066437022805,
+        "circle_x": 264,
+        "circle_y": 220,
+        "ref_x": 750,
+        "ref_y": 335,
+        "circle_id": 5
+      },
+      {
+        "distance_pixels": 99.28242543370907,
+        "distance_units": 99.28242543370907,
+        "circle_x": 706,
+        "circle_y": 424,
+        "ref_x": 750,
+        "ref_y": 335,
+        "circle_id": 6
+      },
+      {
+        "distance_pixels": 249.77790134437433,
+        "distance_units": 249.77790134437433,
+        "circle_x": 920,
+        "circle_y": 518,
+        "ref_x": 750,
+        "ref_y": 335,
+        "circle_id": 7
+      },
+      {
+        "distance_pixels": 64.38167441127949,
+        "distance_units": 64.38167441127949,
+        "circle_x": 706,
+        "circle_y": 382,
+        "ref_x": 750,
+        "ref_y": 335,
+        "circle_id": 8
+      },
+      {
+        "distance_pixels": 215.23243250030885,
+        "distance_units": 215.23243250030885,
+        "circle_x": 832,
+        "circle_y": 534,
+        "ref_x": 750,
+        "ref_y": 335,
+        "circle_id": 9
+      }
+    ],
+    "distance_pixels": 64.38167441127949,
+    "distance_units": 64.38167441127949,
+    "circle_x": 706,
+    "circle_y": 382,
+    "ref_x": 750,
+    "ref_y": 335
+  },
+  {
+    "timestamp": "2025-08-27T16:18:32.334318",
+    "unix_time": 1756300712.3343184,
+    "total_circles": 6,
+    "circles": [
+      {
+        "distance_pixels": 234.98297810692586,
+        "distance_units": 234.98297810692586,
+        "circle_x": 796,
+        "circle_y": 554,
+        "ref_x": 725,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 256.6028059082753,
+        "distance_units": 256.6028059082753,
+        "circle_x": 798,
+        "circle_y": 576,
+        "ref_x": 725,
+        "ref_y": 330,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 473.9419795713395,
+        "distance_units": 473.9419795713395,
+        "circle_x": 264,
+        "circle_y": 220,
+        "ref_x": 725,
+        "ref_y": 330,
+        "circle_id": 3
+      },
+      {
+        "distance_pixels": 271.4940146669904,
+        "distance_units": 271.4940146669904,
+        "circle_x": 930,
+        "circle_y": 508,
+        "ref_x": 725,
+        "ref_y": 330,
+        "circle_id": 4
+      },
+      {
+        "distance_pixels": 518.3676301622238,
+        "distance_units": 518.3676301622238,
+        "circle_x": 236,
+        "circle_y": 158,
+        "ref_x": 725,
+        "ref_y": 330,
+        "circle_id": 5
+      },
+      {
+        "distance_pixels": 247.58230954573472,
+        "distance_units": 247.58230954573472,
+        "circle_x": 846,
+        "circle_y": 546,
+        "ref_x": 725,
+        "ref_y": 330,
+        "circle_id": 6
+      }
+    ],
+    "distance_pixels": 234.98297810692586,
+    "distance_units": 234.98297810692586,
+    "circle_x": 796,
+    "circle_y": 554,
+    "ref_x": 725,
+    "ref_y": 330
+  },
+  {
+    "timestamp": "2025-08-27T16:18:33.351573",
+    "unix_time": 1756300713.3515735,
+    "total_circles": 7,
+    "circles": [
+      {
+        "distance_pixels": 264.37851652507624,
+        "distance_units": 264.37851652507624,
+        "circle_x": 806,
+        "circle_y": 580,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 246.16254792311523,
+        "distance_units": 246.16254792311523,
+        "circle_x": 790,
+        "circle_y": 566,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 286.8030683238936,
+        "distance_units": 286.8030683238936,
+        "circle_x": 940,
+        "circle_y": 514,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 3
+      },
+      {
+        "distance_pixels": 240.30813552603666,
+        "distance_units": 240.30813552603666,
+        "circle_x": 812,
+        "circle_y": 552,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 4
+      },
+      {
+        "distance_pixels": 469.07995054148284,
+        "distance_units": 469.07995054148284,
+        "circle_x": 264,
+        "circle_y": 220,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 5
+      },
+      {
+        "distance_pixels": 513.6535797597443,
+        "distance_units": 513.6535797597443,
+        "circle_x": 236,
+        "circle_y": 158,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 6
+      },
+      {
+        "distance_pixels": 421.54477816715985,
+        "distance_units": 421.54477816715985,
+        "circle_x": 1082,
+        "circle_y": 546,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 7
+      }
+    ],
+    "distance_pixels": 240.30813552603666,
+    "distance_units": 240.30813552603666,
+    "circle_x": 812,
+    "circle_y": 552,
+    "ref_x": 720,
+    "ref_y": 330
+  },
+  {
+    "timestamp": "2025-08-27T16:18:34.417702",
+    "unix_time": 1756300714.417702,
+    "total_circles": 4,
+    "circles": [
+      {
+        "distance_pixels": 265.63132345414385,
+        "distance_units": 265.63132345414385,
+        "circle_x": 804,
+        "circle_y": 582,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 253.69272752682525,
+        "distance_units": 253.69272752682525,
+        "circle_x": 818,
+        "circle_y": 564,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 469.07995054148284,
+        "distance_units": 469.07995054148284,
+        "circle_x": 264,
+        "circle_y": 220,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 3
+      },
+      {
+        "distance_pixels": 224.80213522117623,
+        "distance_units": 224.80213522117623,
+        "circle_x": 810,
+        "circle_y": 536,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 4
+      }
+    ],
+    "distance_pixels": 224.80213522117623,
+    "distance_units": 224.80213522117623,
+    "circle_x": 810,
+    "circle_y": 536,
+    "ref_x": 720,
+    "ref_y": 330
+  },
+  {
+    "timestamp": "2025-08-27T16:18:35.428457",
+    "unix_time": 1756300715.4284577,
+    "total_circles": 2,
+    "circles": [
+      {
+        "distance_pixels": 265.70660511172844,
+        "distance_units": 265.70660511172844,
+        "circle_x": 810,
+        "circle_y": 580,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 241.1057859114957,
+        "distance_units": 241.1057859114957,
+        "circle_x": 804,
+        "circle_y": 556,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 2
+      }
+    ],
+    "distance_pixels": 241.1057859114957,
+    "distance_units": 241.1057859114957,
+    "circle_x": 804,
+    "circle_y": 556,
+    "ref_x": 720,
+    "ref_y": 330
+  },
+  {
+    "timestamp": "2025-08-27T16:18:36.462759",
+    "unix_time": 1756300716.4627593,
+    "total_circles": 2,
+    "circles": [
+      {
+        "distance_pixels": 266.92320993124594,
+        "distance_units": 266.92320993124594,
+        "circle_x": 808,
+        "circle_y": 582,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 466.7718928984478,
+        "distance_units": 466.7718928984478,
+        "circle_x": 270,
+        "circle_y": 206,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 2
+      }
+    ],
+    "distance_pixels": 266.92320993124594,
+    "distance_units": 266.92320993124594,
+    "circle_x": 808,
     "circle_y": 582,
-    "ref_x": 770,
-    "ref_y": 310
+    "ref_x": 720,
+    "ref_y": 330
   },
   {
-    "timestamp": "2025-08-27T16:11:51.360628",
-    "unix_time": 1756300311.3606284,
-    "distance_pixels": 520.099990386464,
-    "distance_units": 520.099990386464,
-    "circle_x": 260,
-    "circle_y": 208,
-    "ref_x": 770,
-    "ref_y": 310
+    "timestamp": "2025-08-27T16:18:37.467951",
+    "unix_time": 1756300717.4679518,
+    "total_circles": 2,
+    "circles": [
+      {
+        "distance_pixels": 266.39069052802876,
+        "distance_units": 266.39069052802876,
+        "circle_x": 812,
+        "circle_y": 580,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 242.52834885843757,
+        "distance_units": 242.52834885843757,
+        "circle_x": 808,
+        "circle_y": 556,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 2
+      }
+    ],
+    "distance_pixels": 242.52834885843757,
+    "distance_units": 242.52834885843757,
+    "circle_x": 808,
+    "circle_y": 556,
+    "ref_x": 720,
+    "ref_y": 330
   },
   {
-    "timestamp": "2025-08-27T16:11:52.458918",
-    "unix_time": 1756300312.4589179,
-    "distance_pixels": 549.4433546781688,
-    "distance_units": 549.4433546781688,
-    "circle_x": 242,
-    "circle_y": 158,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:11:54.788983",
-    "unix_time": 1756300314.7889836,
-    "distance_pixels": 521.5246878144887,
-    "distance_units": 521.5246878144887,
-    "circle_x": 262,
-    "circle_y": 192,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:11:56.021902",
-    "unix_time": 1756300316.0219028,
-    "distance_pixels": 127.20062892926276,
-    "distance_units": 127.20062892926276,
+    "timestamp": "2025-08-27T16:18:38.509975",
+    "unix_time": 1756300718.509975,
+    "total_circles": 2,
+    "circles": [
+      {
+        "distance_pixels": 291.73275441746335,
+        "distance_units": 291.73275441746335,
+        "circle_x": 948,
+        "circle_y": 512,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 247.42675683927152,
+        "distance_units": 247.42675683927152,
+        "circle_x": 806,
+        "circle_y": 562,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 2
+      }
+    ],
+    "distance_pixels": 247.42675683927152,
+    "distance_units": 247.42675683927152,
     "circle_x": 806,
-    "circle_y": 432,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:11:57.024581",
-    "unix_time": 1756300317.0245814,
-    "distance_pixels": 54.91812087098393,
-    "distance_units": 54.91812087098393,
-    "circle_x": 780,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:11:58.037602",
-    "unix_time": 1756300318.037603,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:11:59.131227",
-    "unix_time": 1756300319.1312273,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:00.138211",
-    "unix_time": 1756300320.1382113,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:01.154754",
-    "unix_time": 1756300321.1547544,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:02.170947",
-    "unix_time": 1756300322.170947,
-    "distance_pixels": 52.952809179494906,
-    "distance_units": 52.952809179494906,
-    "circle_x": 780,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:03.398064",
-    "unix_time": 1756300323.3980641,
-    "distance_pixels": 52.952809179494906,
-    "distance_units": 52.952809179494906,
-    "circle_x": 780,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:04.404283",
-    "unix_time": 1756300324.4042838,
-    "distance_pixels": 52.952809179494906,
-    "distance_units": 52.952809179494906,
-    "circle_x": 780,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:05.421779",
-    "unix_time": 1756300325.4217796,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:06.437174",
-    "unix_time": 1756300326.4371743,
-    "distance_pixels": 53.85164807134504,
-    "distance_units": 53.85164807134504,
-    "circle_x": 784,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:07.471029",
-    "unix_time": 1756300327.471029,
-    "distance_pixels": 53.85164807134504,
-    "distance_units": 53.85164807134504,
-    "circle_x": 784,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:08.497988",
-    "unix_time": 1756300328.4979885,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:09.523555",
-    "unix_time": 1756300329.523555,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:10.534358",
-    "unix_time": 1756300330.5343587,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:11.564014",
-    "unix_time": 1756300331.5640144,
-    "distance_pixels": 53.85164807134504,
-    "distance_units": 53.85164807134504,
-    "circle_x": 784,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:12.587538",
-    "unix_time": 1756300332.5875387,
-    "distance_pixels": 53.85164807134504,
-    "distance_units": 53.85164807134504,
-    "circle_x": 784,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:13.604607",
-    "unix_time": 1756300333.6046073,
-    "distance_pixels": 54.91812087098393,
-    "distance_units": 54.91812087098393,
-    "circle_x": 780,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:14.637106",
-    "unix_time": 1756300334.6371062,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:15.681258",
-    "unix_time": 1756300335.6812584,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:16.939866",
-    "unix_time": 1756300336.9398665,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:17.953624",
-    "unix_time": 1756300337.9536242,
-    "distance_pixels": 54.91812087098393,
-    "distance_units": 54.91812087098393,
-    "circle_x": 780,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:18.998611",
-    "unix_time": 1756300338.9986112,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:19.998891",
-    "unix_time": 1756300339.9988914,
-    "distance_pixels": 54.91812087098393,
-    "distance_units": 54.91812087098393,
-    "circle_x": 780,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:21.029760",
-    "unix_time": 1756300341.029761,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:22.036880",
-    "unix_time": 1756300342.0368798,
-    "distance_pixels": 54.91812087098393,
-    "distance_units": 54.91812087098393,
-    "circle_x": 780,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:23.043349",
-    "unix_time": 1756300343.04335,
-    "distance_pixels": 54.91812087098393,
-    "distance_units": 54.91812087098393,
-    "circle_x": 780,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:24.054164",
-    "unix_time": 1756300344.0541642,
-    "distance_pixels": 53.85164807134504,
-    "distance_units": 53.85164807134504,
-    "circle_x": 784,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:25.065274",
-    "unix_time": 1756300345.065274,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:26.079510",
-    "unix_time": 1756300346.0795105,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:27.115561",
-    "unix_time": 1756300347.1155612,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:28.153072",
-    "unix_time": 1756300348.1530724,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:29.153699",
-    "unix_time": 1756300349.1536992,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:30.429479",
-    "unix_time": 1756300350.4294796,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:31.479307",
-    "unix_time": 1756300351.4793074,
-    "distance_pixels": 54.91812087098393,
-    "distance_units": 54.91812087098393,
-    "circle_x": 780,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:32.503377",
-    "unix_time": 1756300352.5033774,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:33.504398",
-    "unix_time": 1756300353.504398,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:34.512400",
-    "unix_time": 1756300354.5124009,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:35.536602",
-    "unix_time": 1756300355.536602,
-    "distance_pixels": 53.85164807134504,
-    "distance_units": 53.85164807134504,
-    "circle_x": 784,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:36.552869",
-    "unix_time": 1756300356.5528693,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:37.602562",
-    "unix_time": 1756300357.6025627,
-    "distance_pixels": 53.85164807134504,
-    "distance_units": 53.85164807134504,
-    "circle_x": 784,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:38.629129",
-    "unix_time": 1756300358.6291292,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:39.636616",
-    "unix_time": 1756300359.636616,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:40.661933",
-    "unix_time": 1756300360.6619337,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:41.668531",
-    "unix_time": 1756300361.6685314,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:42.904371",
-    "unix_time": 1756300362.9043713,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:43.918914",
-    "unix_time": 1756300363.9189143,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:44.949818",
-    "unix_time": 1756300364.9498184,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:45.951780",
-    "unix_time": 1756300365.9517806,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:46.971312",
-    "unix_time": 1756300366.971312,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:47.986157",
-    "unix_time": 1756300367.986157,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:49.019252",
-    "unix_time": 1756300369.0192523,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:50.021751",
-    "unix_time": 1756300370.0217514,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:51.034715",
-    "unix_time": 1756300371.0347154,
-    "distance_pixels": 53.85164807134504,
-    "distance_units": 53.85164807134504,
-    "circle_x": 784,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:52.052688",
-    "unix_time": 1756300372.0526881,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:53.061695",
-    "unix_time": 1756300373.0616953,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:54.113707",
-    "unix_time": 1756300374.1137075,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:55.145478",
-    "unix_time": 1756300375.1454787,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:56.152461",
-    "unix_time": 1756300376.1524613,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:57.153745",
-    "unix_time": 1756300377.1537454,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:58.454460",
-    "unix_time": 1756300378.4544604,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:12:59.461185",
-    "unix_time": 1756300379.4611852,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:00.503770",
-    "unix_time": 1756300380.50377,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:01.540591",
-    "unix_time": 1756300381.540592,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:02.568147",
-    "unix_time": 1756300382.5681477,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:03.568915",
-    "unix_time": 1756300383.5689151,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:04.611988",
-    "unix_time": 1756300384.6119883,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:05.619213",
-    "unix_time": 1756300385.6192133,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:06.652410",
-    "unix_time": 1756300386.6524105,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:07.678419",
-    "unix_time": 1756300387.678419,
-    "distance_pixels": 55.78530272392541,
-    "distance_units": 55.78530272392541,
-    "circle_x": 784,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:08.853154",
-    "unix_time": 1756300388.853154,
-    "distance_pixels": 54.91812087098393,
-    "distance_units": 54.91812087098393,
-    "circle_x": 780,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:10.011511",
-    "unix_time": 1756300390.0115113,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:11.263116",
-    "unix_time": 1756300391.2631164,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:12.396909",
-    "unix_time": 1756300392.3969097,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:13.641579",
-    "unix_time": 1756300393.6415799,
-    "distance_pixels": 52.952809179494906,
-    "distance_units": 52.952809179494906,
-    "circle_x": 780,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:14.677067",
-    "unix_time": 1756300394.677067,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:15.709618",
-    "unix_time": 1756300395.7096179,
-    "distance_pixels": 52.952809179494906,
-    "distance_units": 52.952809179494906,
-    "circle_x": 780,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:16.730785",
-    "unix_time": 1756300396.7307858,
-    "distance_pixels": 53.85164807134504,
-    "distance_units": 53.85164807134504,
-    "circle_x": 784,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:17.773700",
-    "unix_time": 1756300397.7737,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:18.974962",
-    "unix_time": 1756300398.9749627,
-    "distance_pixels": 55.31726674375732,
-    "distance_units": 55.31726674375732,
-    "circle_x": 782,
-    "circle_y": 364,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:20.005102",
-    "unix_time": 1756300400.0051022,
-    "distance_pixels": 53.85164807134504,
-    "distance_units": 53.85164807134504,
-    "circle_x": 784,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:21.045529",
-    "unix_time": 1756300401.0455291,
-    "distance_pixels": 53.85164807134504,
-    "distance_units": 53.85164807134504,
-    "circle_x": 784,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
-  },
-  {
-    "timestamp": "2025-08-27T16:13:22.047286",
-    "unix_time": 1756300402.0472867,
-    "distance_pixels": 53.36665625650534,
-    "distance_units": 53.36665625650534,
-    "circle_x": 782,
-    "circle_y": 362,
-    "ref_x": 770,
-    "ref_y": 310
+    "circle_y": 562,
+    "ref_x": 720,
+    "ref_y": 330
+  },
+  {
+    "timestamp": "2025-08-27T16:18:39.526822",
+    "unix_time": 1756300719.5268223,
+    "total_circles": 4,
+    "circles": [
+      {
+        "distance_pixels": 290.17236257093816,
+        "distance_units": 290.17236257093816,
+        "circle_x": 946,
+        "circle_y": 512,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 260.5993092853471,
+        "distance_units": 260.5993092853471,
+        "circle_x": 806,
+        "circle_y": 576,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 469.07995054148284,
+        "distance_units": 469.07995054148284,
+        "circle_x": 264,
+        "circle_y": 220,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 3
+      },
+      {
+        "distance_pixels": 257.8992051170379,
+        "distance_units": 257.8992051170379,
+        "circle_x": 824,
+        "circle_y": 566,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 4
+      }
+    ],
+    "distance_pixels": 257.8992051170379,
+    "distance_units": 257.8992051170379,
+    "circle_x": 824,
+    "circle_y": 566,
+    "ref_x": 720,
+    "ref_y": 330
+  },
+  {
+    "timestamp": "2025-08-27T16:18:40.550959",
+    "unix_time": 1756300720.5509596,
+    "total_circles": 6,
+    "circles": [
+      {
+        "distance_pixels": 289.38555596297476,
+        "distance_units": 289.38555596297476,
+        "circle_x": 940,
+        "circle_y": 518,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 1
+      },
+      {
+        "distance_pixels": 469.07995054148284,
+        "distance_units": 469.07995054148284,
+        "circle_x": 264,
+        "circle_y": 220,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 2
+      },
+      {
+        "distance_pixels": 513.6535797597443,
+        "distance_units": 513.6535797597443,
+        "circle_x": 236,
+        "circle_y": 158,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 3
+      },
+      {
+        "distance_pixels": 251.8491612056709,
+        "distance_units": 251.8491612056709,
+        "circle_x": 818,
+        "circle_y": 562,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 4
+      },
+      {
+        "distance_pixels": 221.72054483064937,
+        "distance_units": 221.72054483064937,
+        "circle_x": 802,
+        "circle_y": 536,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 5
+      },
+      {
+        "distance_pixels": 275.60116110060204,
+        "distance_units": 275.60116110060204,
+        "circle_x": 940,
+        "circle_y": 496,
+        "ref_x": 720,
+        "ref_y": 330,
+        "circle_id": 6
+      }
+    ],
+    "distance_pixels": 221.72054483064937,
+    "distance_units": 221.72054483064937,
+    "circle_x": 802,
+    "circle_y": 536,
+    "ref_x": 720,
+    "ref_y": 330
   }
 ]
