@@ -1,0 +1,1360 @@
+import tkinter as tk
+from tkinter import messagebox, ttk
+import cv2
+import numpy as np
+from PIL import Image, ImageTk
+import threading
+import time
+import math
+import ipaddress
+import socket
+
+class CameraCalibrationFeatures:
+    def __init__(self):
+        self.setup_window()
+        self.setup_variables()
+        self.setup_interface()
+        
+    def setup_window(self):
+        """Create main window"""
+        self.root = tk.Tk()
+        self.root.title("🎥 Camera Calibration & Features Interface")
+        self.root.geometry("1400x900")
+        self.root.configure(bg='#2c3e50')
+        
+    def setup_variables(self):
+        """Initialize all variables"""
+        # Camera settings
+        self.ip = "169.254.160.162"
+        self.port = "8554"
+        self.username = "fgcam"
+        self.password = "admin"
+        self.stream_path = "/0/unicast"
+        
+        # Camera variables
+        self.cap = None
+        self.frame = None
+        self.display_frame = None
+        self.is_running = False
+        self.is_connected = False
+        
+        # Zoom variables (1x to 10x)
+        self.zoom_factor = 1.0
+        self.zoom_center_x = 0
+        self.zoom_center_y = 0
+        self.original_width = 0
+        self.original_height = 0
+        
+        # Scrolling variables for zoomed view
+        self.scroll_offset_x = 0
+        self.scroll_offset_y = 0
+        self.zoomed_frame_width = 0
+        self.zoomed_frame_height = 0
+        
+        # Fixed display variables - frame remains constant size
+        self.display_width = 800
+        self.display_height = 600
+        
+        # Frame rate control
+        self.target_fps = 30
+        self.frame_delay = 1.0 / self.target_fps
+        
+        # GUI update control - prevents update queue overflow
+        self.gui_update_pending = False
+        
+        # UI state variables
+        self.settings_panel_visible = True
+        
+        # Manual contour drawing variables
+        self.contour_mode = False
+        self.drawing_contour = False
+        self.contour_points = []
+        self.completed_contours = []
+        self.contour_measurements = []
+        
+        # Canvas image reference
+        self.canvas_image_id = None
+        
+    def setup_interface(self):
+        """Create the user interface with new layout"""
+        # Create main scrollable container
+        main_canvas = tk.Canvas(self.root, bg='#2c3e50')
+        main_scrollbar = tk.Scrollbar(self.root, orient="vertical", command=main_canvas.yview)
+        self.scrollable_frame = tk.Frame(main_canvas, bg='#2c3e50')
+        
+        # Configure scrolling
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+        )
+        
+        main_canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        main_canvas.configure(yscrollcommand=main_scrollbar.set)
+        
+        # Pack scrollable components
+        main_canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
+        main_scrollbar.pack(side="right", fill="y")
+        
+        # Bind mouse wheel to canvas for scrolling
+        def _on_mousewheel(event):
+            main_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        def _bind_to_mousewheel(event):
+            main_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        def _unbind_from_mousewheel(event):
+            main_canvas.unbind_all("<MouseWheel>")
+        
+        main_canvas.bind('<Enter>', _bind_to_mousewheel)
+        main_canvas.bind('<Leave>', _unbind_from_mousewheel)
+        
+        # Main container (now inside scrollable frame)
+        main_frame = tk.Frame(self.scrollable_frame, bg='#2c3e50')
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # TOP SECTION: Collapsible Control Panel
+        self.control_panel = tk.Frame(main_frame, bg='#34495e', relief=tk.RAISED, bd=2)
+        self.control_panel.pack(fill=tk.X, pady=(0, 10))
+        
+        # Header with collapse button
+        header_frame = tk.Frame(self.control_panel, bg='#34495e')
+        header_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        # Title and collapse button
+        title_label = tk.Label(header_frame, text="🎥 CAMERA CALIBRATION & FEATURES", 
+                              font=('Arial', 16, 'bold'), fg='white', bg='#34495e')
+        title_label.pack(side=tk.LEFT)
+        
+        self.collapse_btn = tk.Button(header_frame, text="📥 MINIMIZE", 
+                                     command=self.toggle_settings_panel, bg='#7f8c8d', fg='white',
+                                     font=('Arial', 10, 'bold'), width=12, height=1)
+        self.collapse_btn.pack(side=tk.RIGHT, padx=(10, 0))
+        
+        # Collapsible content frame
+        self.settings_content = tk.Frame(self.control_panel, bg='#34495e')
+        self.settings_content.pack(fill=tk.X, padx=10, pady=(0, 10))
+        
+        # Camera info
+        self.info_label = tk.Label(self.settings_content, 
+                                  text=f"📹 Camera: {self.ip}:{self.port} | User: {self.username} | Status: Ready", 
+                                  font=('Arial', 10), fg='#ecf0f1', bg='#34495e')
+        self.info_label.pack(pady=5)
+        
+        # Main buttons frame
+        buttons_frame = tk.Frame(self.settings_content, bg='#34495e')
+        buttons_frame.pack(pady=10)
+        
+        # Connect button
+        self.connect_btn = tk.Button(buttons_frame, text="🚀 CONNECT", 
+                                   command=self.connect_camera, bg='#27ae60', fg='white',
+                                   font=('Arial', 12, 'bold'), width=12, height=2)
+        self.connect_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Disconnect button
+        self.disconnect_btn = tk.Button(buttons_frame, text="📴 DISCONNECT", 
+                                      command=self.disconnect_camera, bg='#e74c3c', fg='white',
+                                      font=('Arial', 12, 'bold'), width=12, height=2, state=tk.DISABLED)
+        self.disconnect_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Settings button
+        self.settings_btn = tk.Button(buttons_frame, text="⚙️ SETTINGS", 
+                                    command=self.open_settings, bg='#9b59b6', fg='white',
+                                    font=('Arial', 12, 'bold'), width=12, height=2)
+        self.settings_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Reset zoom button
+        self.reset_zoom_btn = tk.Button(buttons_frame, text="🔄 RESET ZOOM", 
+                                       command=self.reset_zoom, bg='#3498db', fg='white',
+                                       font=('Arial', 12, 'bold'), width=12, height=2, state=tk.DISABLED)
+        self.reset_zoom_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Contour mode button
+        self.contour_mode_btn = tk.Button(buttons_frame, text="📐 CONTOUR MODE", 
+                                         command=self.toggle_contour_mode, bg='#16a085', fg='white',
+                                         font=('Arial', 12, 'bold'), width=12, height=2, state=tk.DISABLED)
+        self.contour_mode_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Clear contours button
+        self.clear_contours_btn = tk.Button(buttons_frame, text="🧹 CLEAR", 
+                                           command=self.clear_contours, bg='#f39c12', fg='white',
+                                           font=('Arial', 12, 'bold'), width=12, height=2, state=tk.DISABLED)
+        self.clear_contours_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Save frame button
+        self.save_btn = tk.Button(buttons_frame, text="📷 SAVE", 
+                                command=self.save_frame, bg='#8e44ad', fg='white',
+                                font=('Arial', 12, 'bold'), width=12, height=2, state=tk.DISABLED)
+        self.save_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Status label
+        self.status_label = tk.Label(self.settings_content, text="Ready to connect. Configure camera settings if needed.", 
+                                   font=('Arial', 11), fg='#f1c40f', bg='#34495e')
+        self.status_label.pack(pady=5)
+        
+        # ZOOM CONTROL - Integrated below settings
+        zoom_control_frame = tk.Frame(self.settings_content, bg='#34495e')
+        zoom_control_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        # Zoom title
+        tk.Label(zoom_control_frame, text="🔍 ZOOM CONTROL (1x - 10x)", 
+                font=('Arial', 12, 'bold'), fg='white', bg='#34495e').pack(pady=(0, 5))
+        
+        # Zoom slider container
+        zoom_slider_frame = tk.Frame(zoom_control_frame, bg='#34495e')
+        zoom_slider_frame.pack(fill=tk.X, padx=50, pady=5)
+        
+        tk.Label(zoom_slider_frame, text="1x", fg='white', bg='#34495e', font=('Arial', 10)).pack(side=tk.LEFT)
+        
+        self.zoom_slider = tk.Scale(zoom_slider_frame, from_=1.0, to=10.0, resolution=0.1,
+                                   orient=tk.HORIZONTAL, bg='#3498db', fg='white',
+                                   activebackground='#2980b9', font=('Arial', 9),
+                                   command=self.on_zoom_change, state=tk.DISABLED)
+        self.zoom_slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=10)
+        
+        tk.Label(zoom_slider_frame, text="10x", fg='white', bg='#34495e', font=('Arial', 10)).pack(side=tk.RIGHT)
+        
+        # Zoom info and navigation
+        zoom_info_frame = tk.Frame(zoom_control_frame, bg='#34495e')
+        zoom_info_frame.pack(fill=tk.X, pady=5)
+        
+        self.zoom_label = tk.Label(zoom_info_frame, text="Zoom: 1.0x | Fixed Display: 800x600", 
+                                 font=('Arial', 10), fg='#bdc3c7', bg='#34495e')
+        self.zoom_label.pack()
+        
+        nav_text = "🔄 Navigation: Arrow Keys=Pan Camera | Mouse Wheel=Scroll GUI Only"
+        tk.Label(zoom_info_frame, text=nav_text, fg='#95a5a6', bg='#34495e', font=('Arial', 9)).pack()
+        
+        # MIDDLE SECTION: Camera Display (Centered)
+        camera_container = tk.Frame(main_frame, bg='#34495e', relief=tk.SUNKEN, bd=3)
+        camera_container.pack(pady=(0, 10))
+        
+        # Camera title
+        camera_title = tk.Label(camera_container, text="📹 LIVE VIDEO FEED", 
+                              font=('Arial', 14, 'bold'), fg='white', bg='#34495e')
+        camera_title.pack(pady=10)
+        
+        # Fixed size video canvas - CENTERED
+        self.video_canvas = tk.Canvas(camera_container, bg='black', 
+                                     width=self.display_width, height=self.display_height,
+                                     highlightthickness=2, highlightbackground='#3498db')
+        self.video_canvas.pack(padx=20, pady=(0, 20))
+        
+        # BOTTOM SECTION: Contour Information and Measurements
+        bottom_frame = tk.Frame(main_frame, bg='#2c3e50')
+        bottom_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Left side - Contour drawing info
+        contour_info_frame = tk.Frame(bottom_frame, bg='#34495e', relief=tk.RAISED, bd=2)
+        contour_info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        
+        tk.Label(contour_info_frame, text="📐 MANUAL CONTOUR DRAWING", 
+                font=('Arial', 12, 'bold'), fg='white', bg='#34495e').pack(pady=10)
+        
+        # Contour instructions
+        instructions = [
+            "1. Enable Contour Mode",
+            "2. Click points to create contour", 
+            "3. Connect last point to first to close",
+            "4. View measurements on the right",
+            "⚡ Live stream & zoom work during drawing!"
+        ]
+        
+        for instruction in instructions:
+            color = '#2ecc71' if '⚡' in instruction else '#bdc3c7'
+            tk.Label(contour_info_frame, text=instruction, fg=color, bg='#34495e', 
+                    font=('Arial', 10)).pack(anchor=tk.W, padx=20, pady=2)
+        
+        # Current contour status
+        self.contour_info_label = tk.Label(contour_info_frame, text="Points: 0 | Status: Ready", 
+                                          fg='#f39c12', bg='#34495e', font=('Arial', 11, 'bold'))
+        self.contour_info_label.pack(pady=15)
+        
+        # Right side - Measurements display
+        measurements_frame = tk.Frame(bottom_frame, bg='#34495e', relief=tk.RAISED, bd=2)
+        measurements_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
+        
+        tk.Label(measurements_frame, text="📊 CONTOUR MEASUREMENTS", 
+                font=('Arial', 12, 'bold'), fg='white', bg='#34495e').pack(pady=10)
+        
+        # Scrollable text for measurements
+        text_frame = tk.Frame(measurements_frame, bg='#34495e')
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
+        
+        self.measurements_text = tk.Text(text_frame, bg='#2c3e50', fg='#ecf0f1', 
+                                        font=('Courier', 9), wrap=tk.WORD, state=tk.DISABLED)
+        
+        measurements_scrollbar = tk.Scrollbar(text_frame, command=self.measurements_text.yview)
+        self.measurements_text.config(yscrollcommand=measurements_scrollbar.set)
+        
+        self.measurements_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        measurements_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Bind canvas events
+        self.video_canvas.bind("<Button-1>", self.on_canvas_click)
+        self.video_canvas.bind("<Button-3>", self.on_right_click)
+        self.video_canvas.bind("<MouseWheel>", self.on_canvas_mouse_wheel)
+        self.video_canvas.bind("<KeyPress>", self.on_key_press)
+        self.video_canvas.focus_set()
+        
+        # Initial measurements display
+        self.update_measurements_display()
+    
+    def toggle_settings_panel(self):
+        """Toggle the visibility of the settings panel"""
+        if self.settings_panel_visible:
+            # Hide the settings content
+            self.settings_content.pack_forget()
+            self.collapse_btn.config(text="📤 EXPAND", bg='#2ecc71')
+            self.settings_panel_visible = False
+        else:
+            # Show the settings content
+            self.settings_content.pack(fill=tk.X, padx=10, pady=(0, 10))
+            self.collapse_btn.config(text="📥 MINIMIZE", bg='#7f8c8d')
+            self.settings_panel_visible = True
+        
+    def open_settings(self):
+        """Open camera settings dialog"""
+        settings_window = tk.Toplevel(self.root)
+        settings_window.title("⚙️ Camera Settings")
+        settings_window.geometry("480x550")  # Increased height to show buttons
+        settings_window.configure(bg='#34495e')
+        settings_window.grab_set()
+        settings_window.transient(self.root)
+        settings_window.resizable(False, False)  # Prevent resizing
+        
+        # Center the window
+        settings_window.update_idletasks()
+        x = (settings_window.winfo_screenwidth() // 2) - (480 // 2)  # Updated for new width
+        y = (settings_window.winfo_screenheight() // 2) - (550 // 2)  # Updated for new height
+        settings_window.geometry(f"480x550+{x}+{y}")
+        
+        # Title with more padding
+        tk.Label(settings_window, text="📹 Camera Configuration", font=('Arial', 14, 'bold'), 
+                fg='white', bg='#34495e').pack(pady=20)
+        
+        # Create a frame for all input fields with better spacing
+        fields_frame = tk.Frame(settings_window, bg='#34495e')
+        fields_frame.pack(padx=25, pady=(0, 20), fill=tk.BOTH, expand=True)
+        
+        # IP Address
+        tk.Label(fields_frame, text="IP Address:", fg='white', bg='#34495e', 
+                font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0,2))
+        ip_entry = tk.Entry(fields_frame, width=35, font=('Arial', 11))
+        ip_entry.insert(0, self.ip)
+        ip_entry.pack(pady=(0,10), fill=tk.X)
+        
+        # Port
+        tk.Label(fields_frame, text="Port:", fg='white', bg='#34495e', 
+                font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0,2))
+        port_entry = tk.Entry(fields_frame, width=35, font=('Arial', 11))
+        port_entry.insert(0, self.port)
+        port_entry.pack(pady=(0,10), fill=tk.X)
+        
+        # Username
+        tk.Label(fields_frame, text="Username:", fg='white', bg='#34495e', 
+                font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0,2))
+        username_entry = tk.Entry(fields_frame, width=35, font=('Arial', 11))
+        username_entry.insert(0, self.username)
+        username_entry.pack(pady=(0,10), fill=tk.X)
+        
+        # Password
+        tk.Label(fields_frame, text="Password:", fg='white', bg='#34495e', 
+                font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0,2))
+        password_entry = tk.Entry(fields_frame, width=35, font=('Arial', 11), show="*")
+        password_entry.insert(0, self.password)
+        password_entry.pack(pady=(0,10), fill=tk.X)
+        
+        # Stream Path
+        tk.Label(fields_frame, text="Stream Path:", fg='white', bg='#34495e', 
+                font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0,2))
+        path_entry = tk.Entry(fields_frame, width=35, font=('Arial', 11))
+        path_entry.insert(0, self.stream_path)
+        path_entry.pack(pady=(0,10), fill=tk.X)
+        
+        # Frame Rate
+        tk.Label(fields_frame, text="Frame Rate (FPS):", fg='white', bg='#34495e', 
+                font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0,2))
+        fps_entry = tk.Entry(fields_frame, width=35, font=('Arial', 11))
+        fps_entry.insert(0, str(self.target_fps))
+        fps_entry.pack(pady=(0,20), fill=tk.X)  # Increased bottom padding
+        
+        # Buttons frame - positioned at bottom with proper spacing
+        button_frame = tk.Frame(settings_window, bg='#34495e')
+        button_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=25, pady=25)  # Increased padding and fill X
+        
+        def save_settings():
+            try:
+                new_ip = ip_entry.get().strip()
+                new_port = port_entry.get().strip()
+                new_username = username_entry.get().strip()
+                new_password = password_entry.get()
+                new_stream_path = path_entry.get().strip()
+                
+                # Validate inputs
+                if not all([new_ip, new_port, new_username]):
+                    messagebox.showwarning("❌ Invalid Input", "IP Address, Port, and Username cannot be empty!")
+                    return
+                
+                # Validate IP address format
+                if not self.validate_ip_address(new_ip):
+                    messagebox.showerror("❌ Invalid IP Address", 
+                                       f"The IP address '{new_ip}' is not valid.\n\n"
+                                       f"Please enter a valid IP format:\n"
+                                       f"• Should be in format: XXX.XXX.XXX.XXX\n"
+                                       f"• Example: 169.254.160.162\n"
+                                       f"• Each number should be 0-255")
+                    return
+                
+                # Validate port number
+                if not self.validate_port(new_port):
+                    messagebox.showerror("❌ Invalid Port", 
+                                       f"The port '{new_port}' is not valid.\n\n"
+                                       f"Port requirements:\n"
+                                       f"• Must be a number between 1 and 65535\n"
+                                       f"• Common RTSP ports: 554, 8554\n"
+                                       f"• Common HTTP ports: 80, 8080")
+                    return
+                
+                # Update frame rate
+                try:
+                    new_fps = float(fps_entry.get().strip())
+                    if 1 <= new_fps <= 120:
+                        self.target_fps = new_fps
+                        self.frame_delay = 1.0 / self.target_fps
+                    else:
+                        messagebox.showwarning("❌ Invalid FPS", "Frame rate must be between 1 and 120")
+                        return
+                except ValueError:
+                    messagebox.showwarning("❌ Invalid FPS", "Please enter a valid number for frame rate")
+                    return
+                
+                # All validations passed - save settings
+                self.ip = new_ip
+                self.port = new_port
+                self.username = new_username
+                self.password = new_password
+                self.stream_path = new_stream_path
+                
+                self.update_info_label()
+                settings_window.destroy()
+                messagebox.showinfo("✅ Settings Saved Successfully!", 
+                                  f"Camera settings updated and validated!\n\n"
+                                  f"📹 Camera IP: {self.ip}\n"
+                                  f"🚪 Port: {self.port}\n"
+                                  f"👤 Username: {self.username}\n"
+                                  f"🎬 Frame Rate: {self.target_fps} FPS\n\n"
+                                  f"Ready to connect!")
+                
+            except Exception as e:
+                messagebox.showerror("💥 Settings Error", f"Failed to save settings:\n{str(e)}")
+        
+        # Create button container with centered layout
+        button_container = tk.Frame(button_frame, bg='#34495e')
+        button_container.pack(expand=True)
+        
+        tk.Button(button_container, text="💾 SAVE", command=save_settings, 
+                 bg='#27ae60', fg='white', font=('Arial', 12, 'bold'), 
+                 width=15, height=2).pack(side=tk.LEFT, padx=15)
+        
+        tk.Button(button_container, text="❌ CANCEL", command=settings_window.destroy, 
+                 bg='#e74c3c', fg='white', font=('Arial', 12, 'bold'), 
+                 width=15, height=2).pack(side=tk.LEFT, padx=15)
+    
+    def validate_ip_address(self, ip):
+        """Validate IP address format"""
+        try:
+            ipaddress.IPv4Address(ip)
+            return True
+        except ipaddress.AddressValueError:
+            return False
+    
+    def validate_port(self, port):
+        """Validate port number"""
+        try:
+            port_num = int(port)
+            return 1 <= port_num <= 65535
+        except ValueError:
+            return False
+    
+    def test_network_connectivity(self, ip, port, timeout=5):
+        """Test if the IP and port are reachable"""
+        try:
+            socket.setdefaulttimeout(timeout)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            result = sock.connect_ex((ip, int(port)))
+            sock.close()
+            return result == 0
+        except Exception:
+            return False
+    
+    def update_info_label(self):
+        """Update camera info display"""
+        status = "🟢 CONNECTED" if self.is_connected else "🔴 DISCONNECTED"
+        self.info_label.config(text=f"📹 Camera: {self.ip}:{self.port} | User: {self.username} | Status: {status}")
+    
+    def connect_camera(self):
+        """Connect to the camera with comprehensive validation and error handling"""
+        try:
+            # Step 1: Validate IP address format
+            if not self.validate_ip_address(self.ip):
+                messagebox.showerror("❌ Invalid IP Address", 
+                                   f"The IP address '{self.ip}' is not valid.\n\n"
+                                   f"Please check the IP format:\n"
+                                   f"• Should be in format: XXX.XXX.XXX.XXX\n"
+                                   f"• Example: 169.254.160.162\n\n"
+                                   f"Current IP: {self.ip}")
+                self.status_label.config(text="❌ Invalid IP address format. Please check settings.", fg='#e74c3c')
+                return
+            
+            # Step 2: Validate port number
+            if not self.validate_port(self.port):
+                messagebox.showerror("❌ Invalid Port", 
+                                   f"The port '{self.port}' is not valid.\n\n"
+                                   f"Port must be a number between 1 and 65535.\n"
+                                   f"Common RTSP ports: 554, 8554")
+                self.status_label.config(text="❌ Invalid port number. Please check settings.", fg='#e74c3c')
+                return
+            
+            # Step 3: Test network connectivity
+            self.status_label.config(text="🔍 Testing network connectivity...", fg='#f39c12')
+            self.root.update()
+            
+            if not self.test_network_connectivity(self.ip, self.port, timeout=3):
+                messagebox.showerror("🌐 Network Connection Failed", 
+                                   f"Cannot reach the camera at {self.ip}:{self.port}\n\n"
+                                   f"Possible issues:\n"
+                                   f"• Camera is not powered on\n"
+                                   f"• Wrong IP address or port\n"
+                                   f"• Network connectivity issues\n"
+                                   f"• Camera is on a different network\n\n"
+                                   f"Please verify:\n"
+                                   f"• Camera IP: {self.ip}\n"
+                                   f"• Camera Port: {self.port}\n"
+                                   f"• Network connection")
+                self.status_label.config(text="🌐 Cannot reach camera. Check IP, port, and network connection.", fg='#e74c3c')
+                return
+            
+            # Step 4: Build RTSP URL and attempt connection
+            camera_url = f"rtsp://{self.username}:{self.password}@{self.ip}:{self.port}{self.stream_path}"
+            
+            self.status_label.config(text="🔄 Connecting to camera stream...", fg='#f39c12')
+            self.root.update()
+            
+            # Connect to camera with timeout
+            self.cap = cv2.VideoCapture(camera_url)
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            
+            # Set connection timeout (OpenCV CAP_PROP_OPEN_TIMEOUT_MSEC)
+            self.cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 10000)  # 10 seconds timeout
+            
+            if not self.cap.isOpened():
+                raise ConnectionError("Could not establish RTSP connection")
+            
+            # Step 5: Test frame reading
+            self.status_label.config(text="📹 Testing video stream...", fg='#f39c12')
+            self.root.update()
+            
+            ret, test_frame = self.cap.read()
+            if not ret or test_frame is None:
+                raise ValueError("Could not read video frames from camera")
+            
+            # Step 6: Success! Initialize everything
+            self.frame = test_frame
+            self.original_height, self.original_width = test_frame.shape[:2]
+            self.is_connected = True
+            self.is_running = True
+            
+            # Reset zoom and scroll
+            self.zoom_factor = 1.0
+            self.zoom_center_x = self.original_width // 2
+            self.zoom_center_y = self.original_height // 2
+            self.scroll_offset_x = 0
+            self.scroll_offset_y = 0
+            
+            # Update UI - ALL features enabled
+            self.connect_btn.config(state=tk.DISABLED)
+            self.disconnect_btn.config(state=tk.NORMAL)
+            self.reset_zoom_btn.config(state=tk.NORMAL)
+            self.contour_mode_btn.config(state=tk.NORMAL)
+            self.clear_contours_btn.config(state=tk.NORMAL)
+            self.save_btn.config(state=tk.NORMAL)
+            self.zoom_slider.config(state=tk.NORMAL)  # Zoom ALWAYS enabled
+            
+            self.status_label.config(text="✅ Connected successfully! Live stream active. All features enabled.", fg='#27ae60')
+            self.update_info_label()
+            self.update_zoom_label()
+            
+            # Start video thread
+            self.video_thread = threading.Thread(target=self.video_loop, daemon=True)
+            self.video_thread.start()
+            
+            # Show success message
+            messagebox.showinfo("🎉 Connection Successful!", 
+                              f"Successfully connected to camera!\n\n"
+                              f"📹 Camera: {self.ip}:{self.port}\n"
+                              f"📐 Resolution: {self.original_width}x{self.original_height}\n"
+                              f"✅ All features are now available")
+            
+        except ConnectionError as e:
+            error_msg = f"RTSP Connection Failed:\n{str(e)}\n\n"
+            error_msg += f"Possible causes:\n"
+            error_msg += f"• Incorrect username/password\n"
+            error_msg += f"• Camera doesn't support RTSP\n"
+            error_msg += f"• Stream path is incorrect\n"
+            error_msg += f"• Camera is busy/in use\n\n"
+            error_msg += f"Current settings:\n"
+            error_msg += f"• URL: rtsp://{self.username}:***@{self.ip}:{self.port}{self.stream_path}"
+            
+            messagebox.showerror("🚫 RTSP Connection Failed", error_msg)
+            self.status_label.config(text="🚫 RTSP connection failed. Check credentials and stream path.", fg='#e74c3c')
+            
+        except ValueError as e:
+            messagebox.showerror("📹 Video Stream Error", 
+                               f"Connected to camera but cannot read video:\n{str(e)}\n\n"
+                               f"This may indicate:\n"
+                               f"• Camera is not streaming\n"
+                               f"• Unsupported video format\n"
+                               f"• Camera configuration issue")
+            self.status_label.config(text="📹 Connected but cannot read video stream.", fg='#e74c3c')
+            
+        except Exception as e:
+            messagebox.showerror("💥 Unexpected Error", 
+                               f"An unexpected error occurred:\n{str(e)}\n\n"
+                               f"This could be due to:\n"
+                               f"• System resource issues\n"
+                               f"• OpenCV compatibility problems\n"
+                               f"• Network configuration issues\n\n"
+                               f"Try restarting the application or checking your system.")
+            self.status_label.config(text="💥 Unexpected error occurred. Check system and try again.", fg='#e74c3c')
+            
+        finally:
+            # Clean up on failure
+            if not self.is_connected and self.cap:
+                self.cap.release()
+                self.cap = None
+    
+    def disconnect_camera(self):
+        """Disconnect from camera"""
+        self.is_running = False
+        self.is_connected = False
+        
+        if self.cap:
+            self.cap.release()
+            self.cap = None
+        
+        # Clear canvas
+        self.video_canvas.delete("all")
+        self.canvas_image_id = None
+        
+        # Reset contour mode
+        self.contour_mode = False
+        self.drawing_contour = False
+        self.contour_points = []
+        
+        # Update UI
+        self.connect_btn.config(state=tk.NORMAL)
+        self.disconnect_btn.config(state=tk.DISABLED)
+        self.reset_zoom_btn.config(state=tk.DISABLED)
+        self.contour_mode_btn.config(state=tk.DISABLED, text="📐 CONTOUR MODE", bg='#16a085')
+        self.clear_contours_btn.config(state=tk.DISABLED)
+        self.save_btn.config(state=tk.DISABLED)
+        self.zoom_slider.config(state=tk.DISABLED)
+        
+        self.status_label.config(text="📴 Camera disconnected", fg='#e74c3c')
+        self.update_info_label()
+    
+    def video_loop(self):
+        """Main video capture loop - ONLY captures frames, GUI updates via main thread"""
+        while self.is_running and self.cap:
+            frame_start_time = time.time()
+            
+            try:
+                ret, frame = self.cap.read()
+                if ret:
+                    self.frame = frame
+                    # Schedule GUI update on main thread - PREVENTS FREEZING
+                    if not self.gui_update_pending:
+                        self.gui_update_pending = True
+                        self.root.after_idle(self.update_display_threadsafe)
+                else:
+                    break
+            except Exception as e:
+                print(f"Video loop error: {e}")
+                break
+            
+            # Frame rate control
+            frame_process_time = time.time() - frame_start_time
+            if frame_process_time < self.frame_delay:
+                time.sleep(self.frame_delay - frame_process_time)
+    
+    def update_display_threadsafe(self):
+        """Thread-safe wrapper for update_display - called from main thread"""
+        self.gui_update_pending = False
+        self.update_display()
+    
+    def update_display(self):
+        """Update video display - ALWAYS ACTIVE regardless of mode"""
+        if self.frame is None:
+            return
+        
+        try:
+            # Apply zoom and get the visible portion
+            display_frame = self.apply_zoom_and_scroll(self.frame)
+            
+            # Draw contours if any - works at any zoom level
+            if self.completed_contours or self.contour_points:
+                display_frame = self.draw_contours_on_frame(display_frame)
+            
+            # Convert to RGB for tkinter
+            display_frame_rgb = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
+            pil_image = Image.fromarray(display_frame_rgb)
+            photo = ImageTk.PhotoImage(pil_image)
+            
+            # Update canvas - frame size NEVER changes
+            if self.canvas_image_id is None:
+                self.canvas_image_id = self.video_canvas.create_image(
+                    self.display_width//2, self.display_height//2, image=photo)
+            else:
+                self.video_canvas.itemconfig(self.canvas_image_id, image=photo)
+            
+            # Keep reference
+            self.video_canvas.image = photo
+            
+        except Exception as e:
+            print(f"Display update error: {e}")
+    
+    def apply_zoom_and_scroll(self, frame):
+        """Apply zoom and scrolling - returns fixed size display"""
+        h, w = frame.shape[:2]
+        
+        if self.zoom_factor <= 1.0:
+            # No zoom - scale to fit display
+            return cv2.resize(frame, (self.display_width, self.display_height))
+        
+        # Calculate zoom window size in original frame
+        zoom_w = int(w / self.zoom_factor)
+        zoom_h = int(h / self.zoom_factor)
+        
+        # Calculate window position with scrolling
+        center_x = self.zoom_center_x + (self.scroll_offset_x / self.zoom_factor)
+        center_y = self.zoom_center_y + (self.scroll_offset_y / self.zoom_factor)
+        
+        # Calculate zoom window bounds
+        start_x = max(0, int(center_x - zoom_w // 2))
+        start_y = max(0, int(center_y - zoom_h // 2))
+        end_x = min(w, start_x + zoom_w)
+        end_y = min(h, start_y + zoom_h)
+        
+        # Adjust if window goes out of bounds
+        if end_x - start_x < zoom_w:
+            start_x = max(0, end_x - zoom_w)
+        if end_y - start_y < zoom_h:
+            start_y = max(0, end_y - zoom_h)
+        
+        # Extract zoomed region
+        zoomed_region = frame[start_y:end_y, start_x:end_x]
+        
+        # Scale to fixed display size
+        return cv2.resize(zoomed_region, (self.display_width, self.display_height))
+    
+    def on_zoom_change(self, value):
+        """Handle zoom slider change - WORKS IN ALL MODES"""
+        self.zoom_factor = float(value)
+        self.update_zoom_label()
+        
+        # Reset scroll when zoom changes significantly
+        if abs(self.zoom_factor - 1.0) < 0.1:
+            self.scroll_offset_x = 0
+            self.scroll_offset_y = 0
+    
+    def reset_zoom(self):
+        """Reset zoom to 1x"""
+        self.zoom_factor = 1.0
+        self.zoom_slider.set(1.0)
+        self.scroll_offset_x = 0
+        self.scroll_offset_y = 0
+        self.zoom_center_x = self.original_width // 2
+        self.zoom_center_y = self.original_height // 2
+        self.update_zoom_label()
+    
+    def update_zoom_label(self):
+        """Update zoom information label"""
+        scroll_info = ""
+        if self.zoom_factor > 1.0:
+            scroll_info = f" | Scroll: ({self.scroll_offset_x}, {self.scroll_offset_y})"
+        
+        mode_info = " | 📐 CONTOUR MODE" if self.contour_mode else ""
+        self.zoom_label.config(text=f"Zoom: {self.zoom_factor:.1f}x | Fixed Display: {self.display_width}x{self.display_height}{scroll_info}{mode_info}")
+    
+    def on_canvas_mouse_wheel(self, event):
+        """Handle mouse wheel for video canvas - DISABLED for camera panning"""
+        # Mouse wheel is now disabled for camera panning
+        # Only arrow keys will control camera navigation
+        # This prevents conflicts with GUI scrolling
+        pass
+    
+    def on_mouse_wheel(self, event):
+        """Legacy mouse wheel handler - DISABLED for camera control"""
+        # Mouse wheel is now disabled for camera panning
+        # This allows GUI scrolling to work without interference
+        pass
+    
+    def on_key_press(self, event):
+        """Handle arrow keys for precise panning - WORKS IN ALL MODES"""
+        if not self.is_connected or self.zoom_factor <= 1.0:
+            return
+        
+        step = 10
+        delta_x, delta_y = 0, 0
+        
+        if event.keysym == 'Up':
+            delta_y = -step
+        elif event.keysym == 'Down':
+            delta_y = step
+        elif event.keysym == 'Left':
+            delta_x = -step
+        elif event.keysym == 'Right':
+            delta_x = step
+        else:
+            return
+        
+        self.update_scroll_offset(delta_x, delta_y)
+    
+    def update_scroll_offset(self, delta_x, delta_y):
+        """Update scroll offsets with bounds checking"""
+        # Update offsets
+        self.scroll_offset_x += delta_x
+        self.scroll_offset_y += delta_y
+        
+        # Calculate bounds based on zoom
+        max_scroll = 200  # Maximum scroll distance
+        self.scroll_offset_x = max(-max_scroll, min(max_scroll, self.scroll_offset_x))
+        self.scroll_offset_y = max(-max_scroll, min(max_scroll, self.scroll_offset_y))
+        
+        self.update_zoom_label()
+    
+    def toggle_contour_mode(self):
+        """Toggle manual contour drawing mode - ZOOM & LIVE STREAM REMAIN ACTIVE"""
+        if not self.is_connected:
+            return
+        
+        self.contour_mode = not self.contour_mode
+        
+        if self.contour_mode:
+            self.contour_mode_btn.config(text="📐 EXIT MODE", bg='#e74c3c')
+            self.status_label.config(text="📐 CONTOUR MODE: Draw while zoomed! Live stream & zoom fully active.", fg='#16a085')
+            # ZOOM SLIDER STAYS ENABLED - this is crucial!
+            self.zoom_slider.config(state=tk.NORMAL)
+        else:
+            self.contour_mode_btn.config(text="📐 CONTOUR MODE", bg='#16a085')
+            self.status_label.config(text="✅ Connected! Live stream active. Use zoom controls and navigation keys.", fg='#27ae60')
+            
+            # Cancel current drawing if any
+            if self.drawing_contour:
+                self.drawing_contour = False
+                self.contour_points = []
+                self.update_contour_info()
+        
+        self.update_zoom_label()
+    
+    def on_canvas_click(self, event):
+        """Handle canvas click for contour drawing or zoom center"""
+        if not self.is_connected:
+            return
+        
+        canvas_x = event.x
+        canvas_y = event.y
+        
+        if self.contour_mode:
+            # Add contour point - works at any zoom level
+            self.add_contour_point(canvas_x, canvas_y)
+        else:
+            # Set zoom center (only when NOT in contour mode)
+            self.set_zoom_center(canvas_x, canvas_y)
+    
+    def set_zoom_center(self, canvas_x, canvas_y):
+        """Set zoom center based on click position"""
+        # Convert canvas coordinates to frame coordinates
+        if self.zoom_factor <= 1.0:
+            # Simple conversion when not zoomed
+            frame_x = int((canvas_x / self.display_width) * self.original_width)
+            frame_y = int((canvas_y / self.display_height) * self.original_height)
+        else:
+            # Complex conversion when zoomed
+            zoom_w = int(self.original_width / self.zoom_factor)
+            zoom_h = int(self.original_height / self.zoom_factor)
+            
+            center_x = self.zoom_center_x + (self.scroll_offset_x / self.zoom_factor)
+            center_y = self.zoom_center_y + (self.scroll_offset_y / self.zoom_factor)
+            
+            start_x = max(0, int(center_x - zoom_w // 2))
+            start_y = max(0, int(center_y - zoom_h // 2))
+            end_x = min(self.original_width, start_x + zoom_w)
+            end_y = min(self.original_height, start_y + zoom_h)
+            
+            if end_x - start_x < zoom_w:
+                start_x = max(0, end_x - zoom_w)
+            if end_y - start_y < zoom_h:
+                start_y = max(0, end_y - zoom_h)
+            
+            frame_x = start_x + int((canvas_x / self.display_width) * (end_x - start_x))
+            frame_y = start_y + int((canvas_y / self.display_height) * (end_y - start_y))
+        
+        self.zoom_center_x = max(0, min(self.original_width, frame_x))
+        self.zoom_center_y = max(0, min(self.original_height, frame_y))
+    
+    def on_right_click(self, event):
+        """Handle right click to cancel current contour"""
+        if self.contour_mode and self.drawing_contour:
+            self.drawing_contour = False
+            self.contour_points = []
+            self.update_contour_info()
+            self.status_label.config(text="❌ Current contour cancelled. Click to start new contour.", fg='#f39c12')
+    
+    def add_contour_point(self, canvas_x, canvas_y):
+        """Add a point to the current contour - ZOOM-AWARE coordinate conversion"""
+        # Convert canvas coordinates to original frame coordinates
+        # This ensures contours maintain absolute pixel positions regardless of zoom
+        
+        if self.zoom_factor <= 1.0:
+            # Simple scaling for no zoom
+            frame_x = (canvas_x / self.display_width) * self.original_width
+            frame_y = (canvas_y / self.display_height) * self.original_height
+        else:
+            # Complex calculation for zoomed view
+            zoom_w = int(self.original_width / self.zoom_factor)
+            zoom_h = int(self.original_height / self.zoom_factor)
+            
+            center_x = self.zoom_center_x + (self.scroll_offset_x / self.zoom_factor)
+            center_y = self.zoom_center_y + (self.scroll_offset_y / self.zoom_factor)
+            
+            start_x = max(0, int(center_x - zoom_w // 2))
+            start_y = max(0, int(center_y - zoom_h // 2))
+            end_x = min(self.original_width, start_x + zoom_w)
+            end_y = min(self.original_height, start_y + zoom_h)
+            
+            # Adjust if window goes out of bounds
+            if end_x - start_x < zoom_w:
+                start_x = max(0, end_x - zoom_w)
+            if end_y - start_y < zoom_h:
+                start_y = max(0, end_y - zoom_h)
+            
+            # Convert display coordinates to original frame coordinates
+            frame_x = start_x + (canvas_x / self.display_width) * (end_x - start_x)
+            frame_y = start_y + (canvas_y / self.display_height) * (end_y - start_y)
+        
+        point = (int(frame_x), int(frame_y))
+        
+        # Check if clicking near first point to close contour
+        if len(self.contour_points) >= 3:
+            first_point = self.contour_points[0]
+            # Scale distance threshold based on zoom for easier clicking
+            distance_threshold = max(15, 30 / self.zoom_factor)
+            distance = math.sqrt((point[0] - first_point[0])**2 + (point[1] - first_point[1])**2)
+            
+            if distance < distance_threshold:
+                self.close_contour()
+                return
+        
+        # Add point to current contour
+        self.contour_points.append(point)
+        if not self.drawing_contour:
+            self.drawing_contour = True
+        
+        self.update_contour_info()
+        
+        # Update status
+        points_needed = max(0, 3 - len(self.contour_points))
+        if points_needed > 0:
+            self.status_label.config(text=f"📐 Added point {len(self.contour_points)}. Need {points_needed} more points minimum. Zoom/pan freely!", fg='#3498db')
+        else:
+            self.status_label.config(text=f"📐 Added point {len(self.contour_points)}. Click near first point to close contour. Zoom/pan freely!", fg='#2ecc71')
+    
+    def close_contour(self):
+        """Close the current contour and calculate measurements"""
+        if len(self.contour_points) < 3:
+            return
+        
+        try:
+            # Convert points to numpy array with proper shape
+            contour_points_array = np.array(self.contour_points, dtype=np.int32)
+            
+            # Ensure the array has the right shape [n_points, 1, 2] for OpenCV
+            if len(contour_points_array.shape) == 2:
+                # Reshape from [n_points, 2] to [n_points, 1, 2]
+                contour = contour_points_array.reshape(-1, 1, 2)
+            else:
+                contour = contour_points_array
+            
+            # Validate contour shape
+            if len(contour.shape) != 3 or contour.shape[1] != 1 or contour.shape[2] != 2:
+                print(f"Error: Invalid contour shape {contour.shape}")
+                self.status_label.config(text="❌ Error creating contour. Please try again.", fg='#e74c3c')
+                return
+            
+            # Calculate measurements
+            measurements = self.calculate_contour_measurements(contour)
+            
+            # Add to completed contours
+            self.completed_contours.append(contour)
+            self.contour_measurements.append(measurements)
+            
+            # Reset current drawing
+            self.drawing_contour = False
+            self.contour_points = []
+            
+            self.update_contour_info()
+            self.update_measurements_display()
+            
+            self.status_label.config(text=f"✅ Contour {len(self.completed_contours)} completed! Live stream & zoom remain active.", fg='#27ae60')
+            
+        except Exception as e:
+            print(f"Error closing contour: {e}")
+            self.status_label.config(text=f"❌ Error closing contour: {str(e)}", fg='#e74c3c')
+            # Reset current drawing on error
+            self.drawing_contour = False
+            self.contour_points = []
+            self.update_contour_info()
+    
+    def calculate_contour_measurements(self, contour):
+        """Calculate detailed measurements for a contour"""
+        try:
+            # Validate contour input
+            if contour is None or len(contour) == 0:
+                raise ValueError("Empty contour provided")
+            
+            # Basic measurements
+            area = cv2.contourArea(contour)
+            perimeter = cv2.arcLength(contour, True)
+            
+            # Bounding rectangle
+            x, y, w, h = cv2.boundingRect(contour)
+            
+            # Center point
+            M = cv2.moments(contour)
+            if M["m00"] != 0:
+                center_x = int(M["m10"] / M["m00"])
+                center_y = int(M["m01"] / M["m00"])
+            else:
+                center_x, center_y = x + w//2, y + h//2
+            
+            # Additional measurements
+            aspect_ratio = float(w) / h if h > 0 else 0
+            extent = float(area) / (w * h) if w * h > 0 else 0
+            
+            # Convex hull and solidity
+            try:
+                hull = cv2.convexHull(contour)
+                hull_area = cv2.contourArea(hull)
+                solidity = float(area) / hull_area if hull_area > 0 else 0
+            except Exception as e:
+                print(f"Error calculating convex hull: {e}")
+                hull_area = area
+                solidity = 1.0
+            
+            return {
+                'contour_id': len(self.completed_contours) + 1,
+                'area': area,
+                'perimeter': perimeter,
+                'center_x': center_x,
+                'center_y': center_y,
+                'bounding_x': x,
+                'bounding_y': y,
+                'width': w,
+                'height': h,
+                'aspect_ratio': aspect_ratio,
+                'extent': extent,
+                'solidity': solidity,
+                'hull_area': hull_area,
+                'num_points': len(contour),
+                'created_at_zoom': self.zoom_factor
+            }
+            
+        except Exception as e:
+            print(f"Error calculating contour measurements: {e}")
+            # Return default measurements
+            return {
+                'contour_id': len(self.completed_contours) + 1,
+                'area': 0,
+                'perimeter': 0,
+                'center_x': 0,
+                'center_y': 0,
+                'bounding_x': 0,
+                'bounding_y': 0,
+                'width': 0,
+                'height': 0,
+                'aspect_ratio': 0,
+                'extent': 0,
+                'solidity': 0,
+                'hull_area': 0,
+                'num_points': 0,
+                'created_at_zoom': self.zoom_factor
+            }
+    
+    def update_contour_info(self):
+        """Update current contour information"""
+        if self.drawing_contour:
+            status = f"Drawing (need {max(0, 3-len(self.contour_points))} more)"
+        else:
+            status = "Ready"
+        
+        zoom_info = f" | Zoom: {self.zoom_factor:.1f}x" if self.zoom_factor > 1.0 else ""
+        self.contour_info_label.config(text=f"Points: {len(self.contour_points)} | Status: {status}{zoom_info}")
+    
+    def update_measurements_display(self):
+        """Update the measurements display"""
+        self.measurements_text.config(state=tk.NORMAL)
+        self.measurements_text.delete(1.0, tk.END)
+        
+        if not self.contour_measurements:
+            self.measurements_text.insert(tk.END, "No contours measured yet.\n\n")
+            self.measurements_text.insert(tk.END, "✅ Live stream continues in contour mode\n")
+            self.measurements_text.insert(tk.END, "✅ Zoom works while drawing contours\n")
+            self.measurements_text.insert(tk.END, "✅ Draw precise contours at high zoom\n")
+            self.measurements_text.insert(tk.END, "✅ Zoom out to see full contours\n\n")
+            self.measurements_text.insert(tk.END, "Create contours using manual drawing mode!")
+        else:
+            self.measurements_text.insert(tk.END, "CONTOUR MEASUREMENTS\n")
+            self.measurements_text.insert(tk.END, "=" * 50 + "\n\n")
+            
+            for i, measurement in enumerate(self.contour_measurements):
+                self.measurements_text.insert(tk.END, f"CONTOUR #{measurement['contour_id']}\n")
+                self.measurements_text.insert(tk.END, f"Location (X,Y): ({measurement['center_x']}, {measurement['center_y']})\n")
+                self.measurements_text.insert(tk.END, f"Bounding Box: X={measurement['bounding_x']}, Y={measurement['bounding_y']}\n")
+                self.measurements_text.insert(tk.END, f"Size (W×H): {measurement['width']} × {measurement['height']} pixels\n")
+                self.measurements_text.insert(tk.END, f"Area: {measurement['area']:.1f} pixels²\n")
+                self.measurements_text.insert(tk.END, f"Perimeter: {measurement['perimeter']:.1f} pixels\n")
+                self.measurements_text.insert(tk.END, f"Aspect Ratio: {measurement['aspect_ratio']:.2f}\n")
+                self.measurements_text.insert(tk.END, f"Solidity: {measurement['solidity']:.2f}\n")
+                self.measurements_text.insert(tk.END, f"Points: {measurement['num_points']}\n")
+                self.measurements_text.insert(tk.END, f"Created at Zoom: {measurement['created_at_zoom']:.1f}x\n")
+                self.measurements_text.insert(tk.END, "\n" + "-" * 30 + "\n\n")
+        
+        self.measurements_text.config(state=tk.DISABLED)
+        self.measurements_text.see(tk.END)
+    
+    def draw_contours_on_frame(self, frame):
+        """Draw contours on the display frame - contours maintain absolute size"""
+        try:
+            result = frame.copy()
+            
+            # Draw completed contours
+            for i, contour in enumerate(self.completed_contours):
+                try:
+                    # Convert frame coordinates to display coordinates
+                    display_contour = self.frame_to_display_coordinates(contour)
+                    
+                    if display_contour is None or len(display_contour) == 0:
+                        continue
+                    
+                    # Filter out points that are outside the visible area
+                    visible_points = []
+                    for point in display_contour:
+                        if len(point) > 0 and len(point[0]) == 2:
+                            if 0 <= point[0][0] <= self.display_width and 0 <= point[0][1] <= self.display_height:
+                                visible_points.append(point)
+                    
+                    if len(visible_points) >= 2:  # Need at least 2 points to draw
+                        visible_contour = np.array(visible_points, dtype=np.int32)
+                        
+                        # Draw contour
+                        color = [(0, 255, 0), (255, 0, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255)][i % 5]
+                        cv2.drawContours(result, [visible_contour], -1, color, 2)
+                        
+                        # Draw center point if visible
+                        if len(self.contour_measurements) > i:
+                            measurement = self.contour_measurements[i]
+                            try:
+                                center_point_array = np.array([[[measurement['center_x'], measurement['center_y']]]])
+                                center_display_array = self.frame_to_display_coordinates(center_point_array)
+                                
+                                if len(center_display_array) > 0:
+                                    center_display = center_display_array[0][0]
+                                    
+                                    # Only draw center if it's visible
+                                    if 0 <= center_display[0] <= self.display_width and 0 <= center_display[1] <= self.display_height:
+                                        cv2.circle(result, tuple(center_display), 5, color, -1)
+                                        
+                                        # Draw contour number
+                                        cv2.putText(result, str(measurement['contour_id']), 
+                                                   (center_display[0] - 10, center_display[1] - 10),
+                                                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+                            except Exception as e:
+                                print(f"Error drawing center point for contour {i}: {e}")
+                                
+                except Exception as e:
+                    print(f"Error drawing completed contour {i}: {e}")
+                    continue
+            
+            # Draw current contour being drawn
+            if self.contour_points:
+                try:
+                    display_points = []
+                    for point in self.contour_points:
+                        try:
+                            point_array = np.array([[[point[0], point[1]]]])
+                            display_point_array = self.frame_to_display_coordinates(point_array)
+                            
+                            if len(display_point_array) > 0:
+                                display_point = display_point_array[0][0]
+                                # Only add visible points
+                                if 0 <= display_point[0] <= self.display_width and 0 <= display_point[1] <= self.display_height:
+                                    display_points.append(display_point)
+                                    cv2.circle(result, tuple(display_point), 4, (0, 255, 255), -1)
+                        except Exception as e:
+                            print(f"Error processing current contour point: {e}")
+                            continue
+                    
+                    # Draw lines between consecutive visible points
+                    for i in range(len(display_points) - 1):
+                        try:
+                            cv2.line(result, tuple(display_points[i]), tuple(display_points[i+1]), (0, 255, 255), 2)
+                        except Exception as e:
+                            print(f"Error drawing line between points: {e}")
+                    
+                    # Draw line to show potential closure if we have enough points
+                    if len(display_points) >= 3:
+                        try:
+                            cv2.line(result, tuple(display_points[-1]), tuple(display_points[0]), (255, 255, 0), 1)
+                        except Exception as e:
+                            print(f"Error drawing closure line: {e}")
+                            
+                except Exception as e:
+                    print(f"Error drawing current contour: {e}")
+            
+            return result
+            
+        except Exception as e:
+            print(f"Error in draw_contours_on_frame: {e}")
+            return frame  # Return original frame if there's an error
+    
+    def frame_to_display_coordinates(self, contour):
+        """Convert frame coordinates to display coordinates considering zoom and scroll"""
+        try:
+            # Validate contour input
+            if contour is None or len(contour) == 0:
+                return np.array([], dtype=np.int32).reshape(0, 1, 2)
+            
+            # Ensure contour is a numpy array with proper shape
+            if not isinstance(contour, np.ndarray):
+                contour = np.array(contour, dtype=np.int32)
+            
+            # Ensure contour has the right shape [n_points, 1, 2]
+            if len(contour.shape) == 2 and contour.shape[1] == 2:
+                # Reshape from [n_points, 2] to [n_points, 1, 2]
+                contour = contour.reshape(-1, 1, 2)
+            elif len(contour.shape) != 3 or contour.shape[1] != 1 or contour.shape[2] != 2:
+                print(f"Warning: Unexpected contour shape {contour.shape}, attempting to fix")
+                return np.array([], dtype=np.int32).reshape(0, 1, 2)
+            
+            if self.zoom_factor <= 1.0:
+                # Simple scaling when not zoomed
+                scale_x = self.display_width / self.original_width
+                scale_y = self.display_height / self.original_height
+                scaled_contour = contour.copy()
+                scaled_contour[:, 0, 0] = (scaled_contour[:, 0, 0] * scale_x).astype(int)
+                scaled_contour[:, 0, 1] = (scaled_contour[:, 0, 1] * scale_y).astype(int)
+                return scaled_contour
+            else:
+                # When zoomed, calculate the visible area and transform contour points accordingly
+                zoom_w = int(self.original_width / self.zoom_factor)
+                zoom_h = int(self.original_height / self.zoom_factor)
+                
+                center_x = self.zoom_center_x + (self.scroll_offset_x / self.zoom_factor)
+                center_y = self.zoom_center_y + (self.scroll_offset_y / self.zoom_factor)
+                
+                start_x = max(0, int(center_x - zoom_w // 2))
+                start_y = max(0, int(center_y - zoom_h // 2))
+                end_x = min(self.original_width, start_x + zoom_w)
+                end_y = min(self.original_height, start_y + zoom_h)
+                
+                # Adjust if window goes out of bounds
+                if end_x - start_x < zoom_w:
+                    start_x = max(0, end_x - zoom_w)
+                if end_y - start_y < zoom_h:
+                    start_y = max(0, end_y - zoom_h)
+                
+                # Transform contour points to display coordinates
+                display_contour = contour.copy()
+                
+                for i in range(len(contour)):
+                    try:
+                        point_x = contour[i][0][0]
+                        point_y = contour[i][0][1]
+                        
+                        # Check if point is within the visible zoomed area
+                        if start_x <= point_x <= end_x and start_y <= point_y <= end_y:
+                            # Convert to display coordinates
+                            display_x = ((point_x - start_x) / (end_x - start_x)) * self.display_width
+                            display_y = ((point_y - start_y) / (end_y - start_y)) * self.display_height
+                            
+                            display_contour[i][0][0] = int(display_x)
+                            display_contour[i][0][1] = int(display_y)
+                        else:
+                            # Point is outside visible area - move it off screen
+                            display_contour[i][0][0] = -1000
+                            display_contour[i][0][1] = -1000
+                    except (IndexError, TypeError) as e:
+                        print(f"Error processing contour point {i}: {e}")
+                        # Set invalid point coordinates
+                        display_contour[i][0][0] = -1000
+                        display_contour[i][0][1] = -1000
+                
+                return display_contour
+                
+        except Exception as e:
+            print(f"Error in frame_to_display_coordinates: {e}")
+            return np.array([], dtype=np.int32).reshape(0, 1, 2)
+    
+    def clear_contours(self):
+        """Clear all contours and measurements"""
+        self.completed_contours = []
+        self.contour_measurements = []
+        self.contour_points = []
+        self.drawing_contour = False
+        
+        self.update_contour_info()
+        self.update_measurements_display()
+        
+        self.status_label.config(text="🧹 All contours cleared. Live stream & zoom remain active.", fg='#f39c12')
+    
+    def save_frame(self):
+        """Save current frame with contours"""
+        if self.frame is None:
+            return
+        
+        try:
+            # Create frame with contours
+            save_frame = self.frame.copy()
+            
+            # Draw all contours on full resolution frame
+            for i, contour in enumerate(self.completed_contours):
+                color = [(0, 255, 0), (255, 0, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255)][i % 5]
+                cv2.drawContours(save_frame, [contour], -1, color, 3)
+                
+                # Draw measurements
+                if len(self.contour_measurements) > i:
+                    measurement = self.contour_measurements[i]
+                    center = (measurement['center_x'], measurement['center_y'])
+                    cv2.circle(save_frame, center, 8, color, -1)
+                    cv2.putText(save_frame, str(measurement['contour_id']), 
+                               (center[0] - 15, center[1] - 15),
+                               cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 3)
+            
+            # Save with timestamp
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            filename = f"camera_frame_with_contours_{timestamp}.jpg"
+            cv2.imwrite(filename, save_frame)
+            
+            messagebox.showinfo("📷 Frame Saved", f"Frame with {len(self.completed_contours)} contours saved as:\n{filename}")
+            
+        except Exception as e:
+            messagebox.showerror("Save Error", f"Failed to save frame:\n{str(e)}")
+    
+    def run(self):
+        """Start the application"""
+        self.root.mainloop()
+
+if __name__ == "__main__":
+    app = CameraCalibrationFeatures()
+    app.run()

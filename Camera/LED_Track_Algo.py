@@ -2,15 +2,70 @@ import numpy as np
 import cv2
 from scipy.ndimage import shift
 from scipy.signal import find_peaks
+import time  # Add time import for reconnection logic
 
-cap = cv2.VideoCapture(r"C:\Users\thaim\Videos\LED - color change\הקלטה - 50 מטר עם צבע לבן + HSV שינוי פרמטרים.mp4")
+# Connect to RTSP live stream with authentication
+# Replace 'username' and 'password' with actual credentials
+username = "fgcam"  # Change this to your camera username
+password = "admin"  # Change this to your camera password
+rtsp_url = f"rtsp://{username}:{password}@169.254.160.162:8554/0/unicast"
+
+cap = cv2.VideoCapture(rtsp_url)
+
+# Set buffer size to reduce latency for live stream
+cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+# Additional settings for better performance and stability
+cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 1000)  # Reduced timeout to 1 second
+cap.set(cv2.CAP_PROP_FPS, 15)  # Limit FPS to reduce processing load
+
+# Network stream settings for better stability
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('H','2','6','4'))
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)  # Request lower resolution
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
 #cap=cv2.VideoCapture(r"C:\Users\user\Videos\vlc-record-2024-09-23-11h59m43s-Converting rtsp___fgcam_admin@169.254.118.8_8554_0_unicast-.mp4")
 
 # PARAMS & DEFINITIONS
 img_counter = 0
-fps = 25
-calc_length = 60
+fps = 15  # Reduced from 25 to 15 for better performance
+calc_length = 45  # Reduced proportionally (60*15/25)
+# Removed frame_skip to prevent switching between frames
+processing_counter = 0
+
+# Stream reconnection variables
+reconnect_attempts = 0
+max_reconnect_attempts = 5
+last_successful_frame_time = 0
+stream_timeout_threshold = 3.0  # seconds
+
+def reconnect_stream(rtsp_url, max_attempts=3):
+    """Attempt to reconnect to the RTSP stream"""
+    for attempt in range(max_attempts):
+        print(f"Reconnection attempt {attempt + 1}/{max_attempts}...")
+        
+        # Close existing connection
+        cap.release()
+        time.sleep(1)  # Wait before reconnecting
+        
+        # Create new connection
+        new_cap = cv2.VideoCapture(rtsp_url)
+        new_cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        new_cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 1000)
+        new_cap.set(cv2.CAP_PROP_FPS, 15)
+        new_cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('H','2','6','4'))
+        
+        # Test the connection
+        ret, test_frame = new_cap.read()
+        if ret and test_frame is not None:
+            print("✅ Reconnected successfully!")
+            return new_cap
+        else:
+            print(f"❌ Reconnection attempt {attempt + 1} failed")
+            new_cap.release()
+    
+    print("❌ All reconnection attempts failed")
+    return None
 T = 0
 Led_freq = 4.4
 Box_size = 100  # Adjusted box size for better precision
@@ -55,17 +110,75 @@ sfourier_buff = np.zeros((calc_length, sHE, sWI))
 
 
 
-# Initialize tracker
-tracker = cv2.TrackerCSRT_create()
+# Initialize tracker - using available tracker for OpenCV 4.10.0
+try:
+    # Try MIL tracker (available in OpenCV 4.10.0)
+    tracker = cv2.TrackerMIL_create()
+except AttributeError:
+    try:
+        # Try GOTURN tracker as alternative
+        tracker = cv2.TrackerGOTURN_create()
+    except AttributeError:
+        try:
+            # Try DaSiamRPN tracker as fallback
+            tracker = cv2.TrackerDaSiamRPN_create()
+        except AttributeError:
+            print("No compatible tracker found!")
+            exit(1)
+
+# Initialize timing for reconnection logic
+last_successful_frame_time = time.time()
+
 while True:
     ret, frame = cap.read()
-    #print(Mode)
-    if not ret:
-        print("End of video or error reading frame.")
-        break
+    current_time = time.time()
+    
+    if not ret or frame is None:
+        # Check if we've been without frames for too long
+        time_since_last_frame = current_time - last_successful_frame_time
+        
+        if time_since_last_frame > stream_timeout_threshold:
+            print(f"Stream timeout detected ({time_since_last_frame:.1f}s). Attempting reconnection...")
+            
+            # Try to reconnect
+            new_cap = reconnect_stream(rtsp_url, max_reconnect_attempts)
+            if new_cap is not None:
+                cap = new_cap
+                last_successful_frame_time = time.time()
+                continue
+            else:
+                print("Failed to reconnect. Exiting...")
+                break
+        else:
+            # Short timeout, just continue trying
+            time.sleep(0.1)
+            continue
+    else:
+        # Successfully got a frame
+        last_successful_frame_time = current_time
+
+    # Drop frames if processing is too slow (prevent buffer buildup)
+    frames_to_drop = 0
+    while cap.get(cv2.CAP_PROP_BUFFERSIZE) > 1 and frames_to_drop < 3:
+        ret_drop, _ = cap.read()
+        if not ret_drop:
+            break
+        frames_to_drop += 1
+    
+    if frames_to_drop > 0:
+        print(f"Dropped {frames_to_drop} frames to prevent buffer buildup")
+
+    # Clear buffer periodically to prevent accumulation
+    if frame_count % 30 == 0:
+        # Force buffer clear by setting buffer size
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     # Increment the frame count
     frame_count += 1
+
+    # Optimize processing by reducing complex calculations frequency
+    processing_counter += 1
+    do_heavy_processing = (processing_counter % 3 == 0)  # Heavy processing every 3rd frame
 
     # Convert frame to grayscale
     #img = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -175,18 +288,30 @@ while True:
                 z[0] = np.sum(b2)
                 sfourier_buff[:, sw, sh] = z
 
-                func = sfourier_buff[:, sw, sh] - np.average(sfourier_buff[:, sw, sh])
-                fftx = np.abs(np.fft.rfft(sfourier_buff[:, sw, sh]))[1:]
-                f_axis = np.linspace(0, fps / 2, int(0.5 * len(sfourier_buff[:, sw, sh])) + 1)[1:]
-                peaks, _ = find_peaks(fftx, height=np.max(fftx))
+                # Only do heavy FFT processing every 3rd frame
+                if do_heavy_processing:
+                    func = sfourier_buff[:, sw, sh] - np.average(sfourier_buff[:, sw, sh])
+                    fftx = np.abs(np.fft.rfft(sfourier_buff[:, sw, sh]))[1:]
+                    f_axis = np.linspace(0, fps / 2, int(0.5 * len(sfourier_buff[:, sw, sh])) + 1)[1:]
+                    peaks, _ = find_peaks(fftx, height=np.max(fftx))
+                else:
+                    # Use previous results for non-processing frames
+                    if 'prev_sT' not in locals():
+                        prev_sT = 0
+                    sT = prev_sT
+                    
                 cv2.rectangle(frame, (start_w + sw * sBox_size, start_h + sh * sBox_size),
                               (start_w + sw * sBox_size + sBox_size, start_h + sh * sBox_size + sBox_size), (0, 0, 255),2)
 
-                # if fourier_thresh<fourier_TH:
-                if len(peaks) > 0 and fftx[peaks[0]] > 4 * np.median(fftx):
-                    sT = f_axis[peaks][0]
-                else:
-                    sT = 0
+                # Only calculate frequency when doing heavy processing
+                if do_heavy_processing:
+                    # if fourier_thresh<fourier_TH:
+                    if len(peaks) > 0 and fftx[peaks[0]] > 4 * np.median(fftx):
+                        sT = f_axis[peaks][0]
+                        prev_sT = sT  # Store for next non-processing frame
+                    else:
+                        sT = 0
+                        prev_sT = 0
 
                 if np.abs(sT - Led_freq) < freq_th:  # fftx[int(calc_length/fps)]>fourier_thresh:
                     stop_point = (sw * sBox_size + start_w, sh * sBox_size + start_h)
@@ -285,13 +410,15 @@ while True:
             # tracker = cv2.TrackerMIL_create()
 
     # Show the processed binary image (B3) or frame
+    # Optimize display - reduce resolution for better performance
     C2 = cv2.cvtColor(B2, cv2.COLOR_GRAY2RGB)
     FRAMES = np.concatenate((frame, C2), axis=1)
-    prv = cv2.resize(FRAMES, (1280, 960))
-    cv2.imshow("preview", prv)  # Or cv2.imshow("preview", frame) if you want the full frame
+    # Reduced resolution for better performance
+    prv = cv2.resize(FRAMES, (960, 360))  # Smaller than original 1280x960
+    cv2.imshow("preview", prv)
 
-    # Handle keypress
-    k = cv2.waitKey(30)
+    # Handle keypress with reduced wait time for better responsiveness
+    k = cv2.waitKey(1)  # Reduced from 30 to 1 ms
     if k == 27 or k == ord('q'):  # ESC or 'q' to quit
         break
 

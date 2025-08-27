@@ -1,0 +1,33 @@
+{
+  "camera_ip": "169.254.160.162",
+  "camera_port": 8554,
+  "camera_username": "fgcam",
+  "camera_password": "admin",
+  "camera_stream_path": "/0/unicast",
+  "binary_threshold": 180,
+  "binary_threshold_type": 0,
+  "reference_position": {
+    "x": 640,
+    "y": 480
+  },
+  "camera_center": {
+    "x": 640,
+    "y": 480
+  },
+  "circle_detection": {
+    "min_radius": 5,
+    "max_radius": 50,
+    "min_dist_between_circles": 30,
+    "canny_high_threshold": 100,
+    "accumulator_threshold": 20
+  },
+  "pixels_per_unit": 1.0,
+  "distance_unit": "pixels",
+  "save_data": true,
+  "data_filename": "circle_detection_data.json",
+  "save_interval_seconds": 1.0,
+  "display_width": 1280,
+  "display_height": 720,
+  "show_binary_frame": true,
+  "show_detection_info": true
+}
