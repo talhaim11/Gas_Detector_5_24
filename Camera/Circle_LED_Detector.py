@@ -19,12 +19,20 @@ CONFIG = {
     "binary_threshold": 255,  # Adjustable with +/- keys
     "reference_x": 770,       # Adjustable with arrow keys
     "reference_y": 310,       # Adjustable with arrow keys
-    "min_radius": 5,          # Adjustable with 1/2 keys
-    "max_radius": 50,         # Adjustable with 3/4 keys
-    "roi_x_min": 150,         # Adjustable with q/w keys
-    "roi_x_max": 1100,        # Adjustable with e/r keys
-    "roi_y_min": 150,         # Adjustable with a/s keys
-    "roi_y_max": 600,         # Adjustable with d/f keys
+    "min_radius": 1,          # Adjustable with 1/2 keys
+    "max_radius": 10,         # Adjustable with 3/4 keys
+    "roi_x_min": 150,         # Adjustable with u/i/o/p keys
+    "roi_x_max": 1100,        # Adjustable with u/i/o/p keys
+    "roi_y_min": 280,         # Adjustable with j/k/l/; keys
+    "roi_y_max": 700,         # Adjustable with j/k/l/; keys
+    
+    # HoughCircles parameters (adjustable with z/x/c/v/b/n keys)
+    "hough_dp": 1.0,          # Resolution ratio (z/x keys, step 0.2)
+    "hough_min_dist": 20,     # Min distance between circles (c/v keys, step 5)
+    "hough_param1": 50,       # Canny edge threshold (b/n keys, step 5)
+    
+    # Frame rotation (adjustable with [ ] keys)
+    "rotation_angle": 180,    # 0, 90, 180, 270 degrees
     
     # Fixed parameters
     "accumulator_threshold": 10,  # Reduced from 20 to be less strict
@@ -116,14 +124,27 @@ class CircleDetector:
         
         return binary
     
+    def rotate_frame(self, frame):
+        """Rotate frame based on rotation_angle setting"""
+        angle = self.config["rotation_angle"]
+        if angle == 0:
+            return frame
+        elif angle == 90:
+            return cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        elif angle == 180:
+            return cv2.rotate(frame, cv2.ROTATE_180)
+        elif angle == 270:
+            return cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        return frame
+    
     def detect_circles(self, binary_frame):
         """Detect circle-like shapes in binary frame"""
         circles = cv2.HoughCircles(
             binary_frame,
             cv2.HOUGH_GRADIENT,
-            dp=1,
-            minDist=20,  # Reduced from 30 - allow closer circles
-            param1=50,   # Reduced from 100 - less strict edge detection
+            dp=self.config["hough_dp"],
+            minDist=self.config["hough_min_dist"],
+            param1=self.config["hough_param1"],
             param2=self.config["accumulator_threshold"],
             minRadius=self.config["min_radius"],
             maxRadius=self.config["max_radius"]
@@ -254,6 +275,18 @@ class CircleDetector:
             info_y += 25
             cv2.putText(frame, f"Radius: {self.config['min_radius']}-{self.config['max_radius']}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
+            info_y += 25
+            cv2.putText(frame, f"HoughDP: {self.config['hough_dp']:.1f}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            
+            info_y += 25
+            cv2.putText(frame, f"HoughDist: {self.config['hough_min_dist']}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            
+            info_y += 25
+            cv2.putText(frame, f"HoughParam1: {self.config['hough_param1']}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            
+            info_y += 25
+            cv2.putText(frame, f"Rotation: {self.config['rotation_angle']}°", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            
             # Display information for each detected circle
             for circle_info in circle_info_list:
                 info_y += 25
@@ -287,8 +320,12 @@ class CircleDetector:
         print("  3/4 : Adjust max radius (decrease/increase)")
         print("  u/i/o/p : Adjust ROI X borders")
         print("  j/k/l/; : Adjust ROI Y borders")
+        print("  z/x : Adjust HoughCircles dp (resolution ratio)")
+        print("  c/v : Adjust HoughCircles minDist (min distance between circles)")
+        print("  b/n : Adjust HoughCircles param1 (Canny edge threshold)")
+        print("  [ ] : Rotate frame 90° clockwise")
         print("  s : Save frames")
-        print("  c : Reload config file")
+        print("  r : Reload config file")
         print("  q/ESC : Quit")
         print("="*50)
         print("*** CLICK ON THE VIDEO WINDOW TO ENABLE KEYBOARD CONTROLS ***")
@@ -309,6 +346,9 @@ class CircleDetector:
                 break
             
             self.frame_count += 1
+            
+            # Apply frame rotation if needed
+            frame = self.rotate_frame(frame)
             
             # Apply binary threshold
             binary_frame = self.apply_binary_threshold(frame)
@@ -383,7 +423,9 @@ class CircleDetector:
             elif key == 81 or key == 2 or key == ord('f') or key == ord('F'):  # Left arrow or F
                 self.config["reference_x"] = max(0, self.config["reference_x"] - 5)
             elif key == 83 or key == 3 or key == ord('h') or key == ord('H'):  # Right arrow or H
-                self.config["reference_x"] = min(1280, self.config["reference_x"] + 5)            # Radius controls
+                self.config["reference_x"] = min(1280, self.config["reference_x"] + 5)
+                
+            # Radius controls
             elif key == ord('1'):  # Decrease min radius
                 self.config["min_radius"] = max(1, self.config["min_radius"] - 1)
             elif key == ord('2'):  # Increase min radius
@@ -411,6 +453,28 @@ class CircleDetector:
             elif key == ord(';'):  # Increase ROI y_max
                 self.config["roi_y_max"] = min(960, self.config["roi_y_max"] + 10)
                 
+            # HoughCircles parameter controls
+            elif key == ord('z'):  # Decrease dp (resolution ratio)
+                self.config["hough_dp"] = max(0.2, self.config["hough_dp"] - 0.2)
+            elif key == ord('x'):  # Increase dp (resolution ratio)
+                self.config["hough_dp"] = min(3.0, self.config["hough_dp"] + 0.2)
+            elif key == ord('c'):  # Decrease minDist
+                self.config["hough_min_dist"] = max(5, self.config["hough_min_dist"] - 5)
+            elif key == ord('v'):  # Increase minDist
+                self.config["hough_min_dist"] = min(100, self.config["hough_min_dist"] + 5)
+            elif key == ord('b'):  # Decrease param1 (Canny threshold)
+                self.config["hough_param1"] = max(10, self.config["hough_param1"] - 5)
+            elif key == ord('n'):  # Increase param1 (Canny threshold)
+                self.config["hough_param1"] = min(200, self.config["hough_param1"] + 5)
+                
+            # Frame rotation controls
+            elif key == ord('['):  # Rotate 90° clockwise
+                self.config["rotation_angle"] = (self.config["rotation_angle"] + 90) % 360
+                print(f"🔄 Frame rotated to {self.config['rotation_angle']}°")
+            elif key == ord(']'):  # Rotate 90° clockwise (same as [)
+                self.config["rotation_angle"] = (self.config["rotation_angle"] + 90) % 360
+                print(f"🔄 Frame rotated to {self.config['rotation_angle']}°")
+                
             # Save frames and Config reload
             elif key == ord('s'):  # 's' to save current frame
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -427,7 +491,7 @@ class CircleDetector:
                 print(f"   Original: {os.path.join(current_dir, frame_filename)}")
                 print(f"   Binary:   {os.path.join(current_dir, binary_filename)}")
                 
-            elif key == ord('c'):  # 'c' to reload config
+            elif key == ord('r'):  # 'r' to reload config (changed from 'c' to avoid conflict)
                 try:
                     with open("circle_detection_config.json", 'r') as f:
                         loaded_config = json.load(f)
