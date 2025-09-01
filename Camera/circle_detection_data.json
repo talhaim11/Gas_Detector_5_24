@@ -1,0 +1,383 @@
+[
+  {
+    "timestamp": "2025-09-01T10:48:14.013290",
+    "unix_time": 1756712894.01329,
+    "total_circles": 6,
+    "circles": [
+      {
+        "distance_pixels": 214.84878403193255,
+        "distance_units": 214.84878403193255,
+        "circle_x": 858,
+        "circle_y": 506,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 1,
+        "frequency": 0.0,
+        "is_led": false
+      },
+      {
+        "distance_pixels": 388.73126964523965,
+        "distance_units": 388.73126964523965,
+        "circle_x": 876,
+        "circle_y": 684,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 2,
+        "frequency": 0.0,
+        "is_led": false
+      },
+      {
+        "distance_pixels": 505.60063291099624,
+        "distance_units": 505.60063291099624,
+        "circle_x": 334,
+        "circle_y": 566,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 3,
+        "frequency": 0.0,
+        "is_led": false
+      },
+      {
+        "distance_pixels": 514.762080965566,
+        "distance_units": 514.762080965566,
+        "circle_x": 342,
+        "circle_y": 596,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 4,
+        "frequency": 0.0,
+        "is_led": false
+      },
+      {
+        "distance_pixels": 487.77863831865375,
+        "distance_units": 487.77863831865375,
+        "circle_x": 372,
+        "circle_y": 592,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 5,
+        "frequency": 0.0,
+        "is_led": false
+      },
+      {
+        "distance_pixels": 451.4022596310302,
+        "distance_units": 451.4022596310302,
+        "circle_x": 462,
+        "circle_y": 640,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 6,
+        "frequency": 0.0,
+        "is_led": false
+      }
+    ],
+    "analysis_mode": "stage1_analysis",
+    "confirmed_leds": 0,
+    "distance_pixels": 214.84878403193255,
+    "distance_units": 214.84878403193255,
+    "circle_x": 858,
+    "circle_y": 506,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-09-01T10:48:15.062169",
+    "unix_time": 1756712895.062169,
+    "total_circles": 2,
+    "circles": [
+      {
+        "distance_pixels": 502.86379865725075,
+        "distance_units": 502.86379865725075,
+        "circle_x": 336,
+        "circle_y": 564,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 1,
+        "frequency": 0.0,
+        "is_led": false
+      },
+      {
+        "distance_pixels": 375.9255245391034,
+        "distance_units": 375.9255245391034,
+        "circle_x": 732,
+        "circle_y": 684,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 2,
+        "frequency": 0.0,
+        "is_led": false
+      }
+    ],
+    "analysis_mode": "stage1_analysis",
+    "confirmed_leds": 0,
+    "distance_pixels": 375.9255245391034,
+    "distance_units": 375.9255245391034,
+    "circle_x": 732,
+    "circle_y": 684,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-09-01T10:48:16.411671",
+    "unix_time": 1756712896.411671,
+    "total_circles": 2,
+    "circles": [
+      {
+        "distance_pixels": 233.1179958733345,
+        "distance_units": 233.1179958733345,
+        "circle_x": 732,
+        "circle_y": 540,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 1,
+        "frequency": 0.0,
+        "is_led": false
+      },
+      {
+        "distance_pixels": 502.5733777270738,
+        "distance_units": 502.5733777270738,
+        "circle_x": 376,
+        "circle_y": 622,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 2,
+        "frequency": 0.0,
+        "is_led": false
+      }
+    ],
+    "analysis_mode": "stage1_analysis",
+    "confirmed_leds": 0,
+    "distance_pixels": 233.1179958733345,
+    "distance_units": 233.1179958733345,
+    "circle_x": 732,
+    "circle_y": 540,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-09-01T10:48:17.498675",
+    "unix_time": 1756712897.4986753,
+    "total_circles": 1,
+    "circles": [
+      {
+        "distance_pixels": 375.9255245391034,
+        "distance_units": 375.9255245391034,
+        "circle_x": 732,
+        "circle_y": 684,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 1,
+        "frequency": 0.0,
+        "is_led": false
+      }
+    ],
+    "analysis_mode": "stage2_analysis",
+    "confirmed_leds": 0,
+    "distance_pixels": 375.9255245391034,
+    "distance_units": 375.9255245391034,
+    "circle_x": 732,
+    "circle_y": 684,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-09-01T10:48:18.501630",
+    "unix_time": 1756712898.5016308,
+    "total_circles": 1,
+    "circles": [
+      {
+        "distance_pixels": 450.03999822238023,
+        "distance_units": 450.03999822238023,
+        "circle_x": 464,
+        "circle_y": 640,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 1,
+        "frequency": 0.0,
+        "is_led": false
+      }
+    ],
+    "analysis_mode": "stage2_analysis",
+    "confirmed_leds": 0,
+    "distance_pixels": 450.03999822238023,
+    "distance_units": 450.03999822238023,
+    "circle_x": 464,
+    "circle_y": 640,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-09-01T10:48:19.856300",
+    "unix_time": 1756712899.8563,
+    "total_circles": 1,
+    "circles": [
+      {
+        "distance_pixels": 450.03999822238023,
+        "distance_units": 450.03999822238023,
+        "circle_x": 464,
+        "circle_y": 640,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 1,
+        "frequency": 0.0,
+        "is_led": false
+      }
+    ],
+    "analysis_mode": "stage2_analysis",
+    "confirmed_leds": 0,
+    "distance_pixels": 450.03999822238023,
+    "distance_units": 450.03999822238023,
+    "circle_x": 464,
+    "circle_y": 640,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-09-01T10:48:20.932715",
+    "unix_time": 1756712900.9327152,
+    "total_circles": 1,
+    "circles": [
+      {
+        "distance_pixels": 450.03999822238023,
+        "distance_units": 450.03999822238023,
+        "circle_x": 464,
+        "circle_y": 640,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 1,
+        "frequency": 0.0,
+        "is_led": false
+      }
+    ],
+    "analysis_mode": "stage2_analysis",
+    "confirmed_leds": 0,
+    "distance_pixels": 450.03999822238023,
+    "distance_units": 450.03999822238023,
+    "circle_x": 464,
+    "circle_y": 640,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-09-01T10:48:21.971408",
+    "unix_time": 1756712901.9714081,
+    "total_circles": 3,
+    "circles": [
+      {
+        "distance_pixels": 505.60063291099624,
+        "distance_units": 505.60063291099624,
+        "circle_x": 334,
+        "circle_y": 566,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 1,
+        "frequency": 0.0,
+        "is_led": false
+      },
+      {
+        "distance_pixels": 233.1179958733345,
+        "distance_units": 233.1179958733345,
+        "circle_x": 732,
+        "circle_y": 540,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 2,
+        "frequency": 0.0,
+        "is_led": false
+      },
+      {
+        "distance_pixels": 450.03999822238023,
+        "distance_units": 450.03999822238023,
+        "circle_x": 464,
+        "circle_y": 640,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 3,
+        "frequency": 0.0,
+        "is_led": false
+      }
+    ],
+    "analysis_mode": "stage1_analysis",
+    "confirmed_leds": 0,
+    "distance_pixels": 233.1179958733345,
+    "distance_units": 233.1179958733345,
+    "circle_x": 732,
+    "circle_y": 540,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-09-01T10:48:22.981225",
+    "unix_time": 1756712902.9812253,
+    "total_circles": 2,
+    "circles": [
+      {
+        "distance_pixels": 505.60063291099624,
+        "distance_units": 505.60063291099624,
+        "circle_x": 334,
+        "circle_y": 566,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 1,
+        "frequency": 0.0,
+        "is_led": false
+      },
+      {
+        "distance_pixels": 395.9191836726278,
+        "distance_units": 395.9191836726278,
+        "circle_x": 894,
+        "circle_y": 686,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 2,
+        "frequency": 0.0,
+        "is_led": false
+      }
+    ],
+    "analysis_mode": "stage1_analysis",
+    "confirmed_leds": 0,
+    "distance_pixels": 395.9191836726278,
+    "distance_units": 395.9191836726278,
+    "circle_x": 894,
+    "circle_y": 686,
+    "ref_x": 770,
+    "ref_y": 310
+  },
+  {
+    "timestamp": "2025-09-01T10:48:23.983212",
+    "unix_time": 1756712903.9832122,
+    "total_circles": 2,
+    "circles": [
+      {
+        "distance_pixels": 505.60063291099624,
+        "distance_units": 505.60063291099624,
+        "circle_x": 334,
+        "circle_y": 566,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 1,
+        "frequency": 0.0,
+        "is_led": false
+      },
+      {
+        "distance_pixels": 351.2833614050059,
+        "distance_units": 351.2833614050059,
+        "circle_x": 956,
+        "circle_y": 608,
+        "ref_x": 770,
+        "ref_y": 310,
+        "circle_id": 2,
+        "frequency": 0.0,
+        "is_led": false
+      }
+    ],
+    "analysis_mode": "stage1_analysis",
+    "confirmed_leds": 0,
+    "distance_pixels": 351.2833614050059,
+    "distance_units": 351.2833614050059,
+    "circle_x": 956,
+    "circle_y": 608,
+    "ref_x": 770,
+    "ref_y": 310
+  }
+]
