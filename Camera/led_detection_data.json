@@ -1,0 +1,29 @@
+[
+  {
+    "timestamp": 1756900417.4156203,
+    "unix_time": 1756900417.4359972,
+    "total_circles": 1,
+    "circles": [
+      {
+        "distance_pixels": 170.48460341039598,
+        "distance_units": 170.48460341039598,
+        "circle_x": 472,
+        "circle_y": 331,
+        "ref_x": 640,
+        "ref_y": 360,
+        "circle_id": 1,
+        "frequency": 0.0,
+        "is_led": false
+      }
+    ],
+    "analysis_mode": "stage2_analysis",
+    "confirmed_leds": 0,
+    "processing_time": 0,
+    "distance_pixels": 170.48460341039598,
+    "distance_units": 170.48460341039598,
+    "circle_x": 472,
+    "circle_y": 331,
+    "ref_x": 640,
+    "ref_y": 360
+  }
+]

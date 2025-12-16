@@ -2,6 +2,11 @@ import numpy as np
 import cv2
 import time
 import json
+import threading
+import queue
+import os
+import traceback
+from collections import deque
 from datetime import datetime
 
 # ================================
@@ -16,7 +21,7 @@ CONFIG = {
     "camera_stream_path": "/0/unicast",
     
     # Real-time adjustable parameters
-    "binary_threshold": 255,  # Adjustable with +/- keys
+    "binary_threshold": 150,  # Adjustable with +/- keys (lowered from 255)
     "reference_x": 770,       # Adjustable with arrow keys
     "reference_y": 310,       # Adjustable with arrow keys
     "min_radius": 1,          # Adjustable with 1/2 keys
@@ -84,6 +89,25 @@ class CircleDetector:
             self.stage1_rois = []  # 3 ROI areas from stage 1
             self.stage2_start_time = None
             
+            # Threading components
+            self.frame_queue = queue.Queue(maxsize=10)  # Buffer for frames
+            self.result_queue = queue.Queue(maxsize=10)  # Buffer for detection results
+            self.processing_thread = None
+            self.capture_thread = None
+            self.stop_threads = threading.Event()
+            self.config_lock = threading.Lock()  # Thread-safe config updates
+            
+            # Performance monitoring
+            self.fps_counter = 0
+            self.fps_start_time = time.time()
+            self.current_fps = 0
+            self.processing_times = deque(maxlen=30)  # Last 30 processing times
+            
+            # Latest frame and results for display
+            self.latest_frame = None
+            self.latest_detection_data = None
+            self.frame_lock = threading.Lock()
+            
             # Initialize camera with error handling
             self.init_camera()
             
@@ -92,6 +116,272 @@ class CircleDetector:
             import traceback
             traceback.print_exc()
             raise
+
+    def capture_frames_thread(self):
+        """Dedicated thread for capturing frames"""
+        print("🎥 Frame capture thread started")
+        
+        while not self.stop_threads.is_set():
+            try:
+                ret, frame = self.cap.read()
+                if not ret:
+                    print("⚠️  Failed to read frame in capture thread")
+                    time.sleep(0.1)
+                    continue
+                
+                # Apply frame rotation if needed
+                try:
+                    frame = self.rotate_frame(frame)
+                except Exception as e:
+                    print(f"⚠️  Frame rotation error in capture thread: {e}")
+                
+                # Put frame in queue (non-blocking)
+                try:
+                    self.frame_queue.put(frame, timeout=0.01)
+                except queue.Full:
+                    # Queue is full, drop the oldest frame
+                    try:
+                        self.frame_queue.get_nowait()
+                        self.frame_queue.put(frame, timeout=0.01)
+                    except:
+                        pass  # If still can't put, skip this frame
+                
+                # Small delay to prevent overwhelming the system
+                time.sleep(0.001)  # 1ms delay
+                
+            except Exception as e:
+                print(f"⚠️  Error in capture thread: {e}")
+                time.sleep(0.1)
+        
+        print("🎥 Frame capture thread stopped")
+
+    def process_frames_thread(self):
+        """Dedicated thread for processing frames"""
+        print("🔄 Frame processing thread started")
+        
+        while not self.stop_threads.is_set():
+            try:
+                # Get frame from queue
+                try:
+                    frame = self.frame_queue.get(timeout=0.1)
+                except queue.Empty:
+                    continue
+                
+                # Record processing start time
+                process_start = time.time()
+                
+                # Process the frame
+                detection_data = self.process_single_frame(frame)
+                
+                # Record processing time
+                processing_time = (time.time() - process_start) * 1000  # ms
+                self.processing_times.append(processing_time)
+                
+                # Store latest results for display thread
+                with self.frame_lock:
+                    self.latest_frame = frame.copy()
+                    self.latest_detection_data = detection_data
+                
+                # Put result in queue for potential logging
+                try:
+                    self.result_queue.put(detection_data, timeout=0.01)
+                except queue.Full:
+                    # Queue is full, drop oldest result
+                    try:
+                        self.result_queue.get_nowait()
+                        self.result_queue.put(detection_data, timeout=0.01)
+                    except:
+                        pass
+                
+            except Exception as e:
+                print(f"⚠️  Error in processing thread: {e}")
+                time.sleep(0.1)
+        
+        print("🔄 Frame processing thread stopped")
+
+    def process_single_frame(self, frame):
+        """Process a single frame for LED detection"""
+        try:
+            current_time = time.time()
+            
+            # Thread-safe config access
+            with self.config_lock:
+                config_snapshot = self.config.copy()
+            
+            # Update analysis mode based on runtime
+            if not hasattr(self, 'start_time'):
+                self.start_time = current_time
+            
+            runtime = current_time - self.start_time
+            
+            if runtime < config_snapshot["analysis_duration"]:
+                self.analysis_mode = "stage1_analysis"
+            elif runtime < (config_snapshot["analysis_duration"] + config_snapshot["stage2_analysis_duration"]):
+                if self.analysis_mode == "stage1_analysis":
+                    # Transition to stage 2: generate focused ROIs
+                    print("📊 Transitioning to Stage 2 Analysis...")
+                    self.generate_stage1_rois()
+                self.analysis_mode = "stage2_analysis"
+            else:
+                if self.analysis_mode == "stage2_analysis":
+                    print("🎯 Transitioning to Final LED Tracking...")
+                self.analysis_mode = "final_tracking"
+            
+            # Apply binary threshold
+            try:
+                binary_frame = self.apply_binary_threshold(frame)
+            except Exception as e:
+                print(f"⚠️  Binary threshold error: {e}")
+                binary_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if len(frame.shape) == 3 else frame
+            
+            # Detect circles
+            try:
+                circles = self.detect_circles(binary_frame)
+            except Exception as e:
+                print(f"⚠️  Circle detection error: {e}")
+                circles = []
+            
+            # Handle three-stage analysis workflow
+            try:
+                if self.analysis_mode == "stage1_analysis":
+                    # Stage 1: Track circles during initial analysis phase
+                    self.match_circles_to_history(circles, current_time, binary_frame)
+                    
+                    # Check if stage 1 analysis period is complete
+                    elapsed_time = current_time - self.start_time
+                    if elapsed_time >= config_snapshot["analysis_duration"]:
+                        print(f"\n🔍 Stage 1 complete! Generating 3 ROI areas...")
+                        
+                        # Calculate frequencies and generate 3 ROI areas
+                        self.calculate_circle_frequencies()
+                        self.generate_stage1_rois()
+                        
+                        # Switch to stage 2 analysis
+                        self.analysis_mode = "stage2_analysis"
+                        self.stage2_start_time = time.time()
+                        
+                        # Reset tracking for stage 2
+                        self.circle_history = {}
+                        self.next_circle_id = 1
+                        
+                        print(f"✅ Stage 1 → Stage 2: Analyzing {len(self.stage1_rois)} ROI areas")
+                        
+                elif self.analysis_mode == "stage2_analysis":
+                    # Stage 2: Track circles in the 3 ROI areas
+                    self.match_circles_to_history(circles, current_time, binary_frame)
+                    
+                    # Check if stage 2 analysis period is complete
+                    elapsed_time = current_time - self.stage2_start_time if self.stage2_start_time else 0
+                    if elapsed_time >= config_snapshot["stage2_analysis_duration"]:
+                        print(f"\n🎯 Stage 2 complete! Identifying final LED locations...")
+                        
+                        # Calculate frequencies and identify final LEDs
+                        self.calculate_circle_frequencies()
+                        self.generate_led_rois()
+                        
+                        # Switch to final tracking mode
+                        self.analysis_mode = "final_tracking"
+                        
+                        print(f"🏆 Final Stage: Found {len(self.confirmed_leds)} confirmed LEDs at 2Hz")
+                        for i, led in enumerate(self.confirmed_leds):
+                            print(f"   LED{i+1}: ({led['x']}, {led['y']}) - Frequency: {led['frequency']:.2f}Hz - Confidence: {led.get('confidence', 0):.2f}")
+                        
+                        if len(self.confirmed_leds) == 0:
+                            print("⚠️  No LEDs found in Stage 2. Restarting analysis...")
+                            # Restart from stage 1
+                            self.start_time = time.time()
+                            self.analysis_mode = "stage1_analysis"
+                            self.circle_history = {}
+                            self.next_circle_id = 1
+                            self.stage1_rois = []
+                            
+            except Exception as e:
+                print(f"⚠️  Stage analysis error: {e}")
+            
+            # Process detected circles
+            try:
+                detection_data = {
+                    "total_circles": len(circles),
+                    "circles": [],
+                    "analysis_mode": self.analysis_mode,
+                    "confirmed_leds": len(self.confirmed_leds),
+                    "timestamp": current_time,
+                    "processing_time": 0  # Will be updated by caller
+                }
+                
+                if len(circles) > 0:
+                    ref_x = config_snapshot["reference_x"]
+                    ref_y = config_snapshot["reference_y"]
+                    
+                    # Process each circle
+                    for i, circle in enumerate(circles):
+                        circle_data = self.calculate_distance(circle)
+                        circle_data["circle_id"] = i + 1
+                        
+                        # Add frequency information if available
+                        circle_frequency = 0.0
+                        is_led = False
+                        for circle_id, history in self.circle_history.items():
+                            if len(history['positions']) > 0:
+                                last_pos = history['positions'][-1]
+                                distance = np.sqrt((circle[0] - last_pos[0])**2 + (circle[1] - last_pos[1])**2)
+                                if distance < 20:  # Close enough to be same circle
+                                    circle_frequency = history['frequency']
+                                    is_led = history['is_led']
+                                    break
+                        
+                        circle_data["frequency"] = circle_frequency
+                        circle_data["is_led"] = is_led
+                        detection_data["circles"].append(circle_data)
+                    
+                    # For backward compatibility, also include the closest circle as main detection
+                    distances_to_ref = [np.sqrt((c[0] - ref_x)**2 + (c[1] - ref_y)**2) for c in circles]
+                    closest_circle_idx = np.argmin(distances_to_ref)
+                    closest_circle = circles[closest_circle_idx]
+                    
+                    # Calculate distance data for closest circle (for compatibility)
+                    main_detection = self.calculate_distance(closest_circle)
+                    detection_data.update(main_detection)  # Add main detection data
+                    
+                    # Save data
+                    self.save_data(detection_data)
+                
+                return detection_data
+                
+            except Exception as e:
+                print(f"⚠️  Detection data processing error: {e}")
+                return {
+                    "total_circles": 0, 
+                    "circles": [], 
+                    "analysis_mode": self.analysis_mode, 
+                    "confirmed_leds": 0,
+                    "timestamp": current_time,
+                    "processing_time": 0
+                }
+                
+        except Exception as e:
+            print(f"❌ Critical error in process_single_frame: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "total_circles": 0, 
+                "circles": [], 
+                "analysis_mode": "error", 
+                "confirmed_leds": 0,
+                "timestamp": time.time(),
+                "processing_time": 0
+            }
+
+    def update_fps_counter(self):
+        """Update FPS counter"""
+        self.fps_counter += 1
+        if self.fps_counter >= 30:  # Update every 30 frames
+            current_time = time.time()
+            elapsed = current_time - self.fps_start_time
+            if elapsed > 0:
+                self.current_fps = self.fps_counter / elapsed
+            self.fps_counter = 0
+            self.fps_start_time = current_time
         
     def init_camera(self):
         """Initialize camera connection"""
@@ -677,22 +967,33 @@ class CircleDetector:
             cv2.putText(frame, f"Reference: ({ref_x}, {ref_y})", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
             info_y += 25
+            # Display center-to-reference distance
+            center_to_ref_distance = np.sqrt(center_to_ref_x**2 + center_to_ref_y**2)
+            cv2.putText(frame, f"Center->Ref: X:{center_to_ref_x:+.0f} Y:{center_to_ref_y:+.0f} Dist:{center_to_ref_distance:.0f}px", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255), 2)
+            
+            info_y += 25
             cv2.putText(frame, f"Radius: {self.config['min_radius']}-{self.config['max_radius']}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
             info_y += 25
             cv2.putText(frame, f"ROI: X({self.config['roi_x_min']}-{self.config['roi_x_max']}) Y({self.config['roi_y_min']}-{self.config['roi_y_max']})", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             
             info_y += 20
-            cv2.putText(frame, f"HoughDP: {self.config['hough_dp']:.1f}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            cv2.putText(frame, f"HoughDP: {self.config['hough_dp']:.1f} (z/x)", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             
             info_y += 20
-            cv2.putText(frame, f"HoughDist: {self.config['hough_min_dist']}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            cv2.putText(frame, f"HoughDist: {self.config['hough_min_dist']} (c/v)", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             
             info_y += 20
-            cv2.putText(frame, f"HoughParam1: {self.config['hough_param1']}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            cv2.putText(frame, f"HoughParam1: {self.config['hough_param1']} (b/n)", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             
             info_y += 20
-            cv2.putText(frame, f"Rotation: {self.config['rotation_angle']}°", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            cv2.putText(frame, f"AccumThresh: {self.config['accumulator_threshold']} (m/,)", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            
+            info_y += 20
+            cv2.putText(frame, f"Binary Mode: {'ON' if self.config['show_binary_frame'] else 'OFF'} (Press 'SPACE' to toggle)", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0) if self.config['show_binary_frame'] else (255, 255, 255), 1)
+            
+            info_y += 20
+            cv2.putText(frame, f"Rotation: {self.config['rotation_angle']}° ([/])", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
             # Display information for each detected circle
             for circle_info in circle_info_list:
@@ -721,12 +1022,17 @@ class CircleDetector:
         return frame
     
     def run(self):
-        """Main detection loop"""
-        print("Starting circle detection with frequency analysis...")
+        """Main detection loop with threading"""
+        print("Starting threaded circle detection with frequency analysis...")
         print(f"Target LED frequency: {self.config['target_frequency']}Hz")
         print(f"Analysis duration: {self.config['analysis_duration']}s")
         print(f"Expected to find: 8 LEDs blinking at 2Hz")
         print(f"Initial settings - Reference: ({self.config['reference_x']}, {self.config['reference_y']}), Binary threshold: {self.config['binary_threshold']}")
+        print("="*50)
+        print("🧵 THREADED ARCHITECTURE:")
+        print("  • Capture Thread: Dedicated video capture")
+        print("  • Processing Thread: Circle detection & frequency analysis")
+        print("  • Main Thread: Display & user interface")
         print("="*50)
         print("THREE-STAGE ANALYSIS WORKFLOW:")
         print("1. STAGE 1 (5s): Analyze entire ROI, identify 3 most promising areas")
@@ -743,330 +1049,456 @@ class CircleDetector:
         print("  z/x : Adjust HoughCircles dp (resolution ratio)")
         print("  c/v : Adjust HoughCircles minDist (min distance between circles)")
         print("  b/n : Adjust HoughCircles param1 (Canny edge threshold)")
+        print("  m/, : Adjust accumulator threshold (lower = more circles)")
         print("  [ ] : Rotate frame 90° clockwise")
-        print("  SPACE : Restart frequency analysis")
+        print("  SPACE : Toggle binary frame view")
+        print("  r : Restart frequency analysis")
         print("  s : Save frames")
-        print("  r : Reload config file")
         print("  q/ESC : Quit")
         print("="*50)
         print("*** CLICK ON THE VIDEO WINDOW TO ENABLE KEYBOARD CONTROLS ***")
         print("="*50)
         
         # Initialize analysis phase
-        self.analysis_start_time = time.time()
+        self.start_time = time.time()
         self.analysis_mode = "stage1_analysis"
         
         # Create window and set mouse callback
-        window_name = "Circle Detection - Frequency Analysis"
+        window_name = "Circle Detection - Threaded Frequency Analysis"
         cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
         cv2.setMouseCallback(window_name, self.mouse_callback)
         
         # Ensure window is focused
-        cv2.moveWindow(window_name, 100, 100)  # Move window to ensure it's visible
+        cv2.moveWindow(window_name, 100, 100)
         
-        while True:
-            try:
-                ret, frame = self.cap.read()
-                if not ret:
-                    print("Failed to read frame")
-                    break
-                
-                self.frame_count += 1
-                current_time = time.time()
-                
-                # Apply frame rotation if needed
+        # Start threads
+        try:
+            print("🚀 Starting capture and processing threads...")
+            
+            # Reset stop event
+            self.stop_threads.clear()
+            
+            # Start capture thread
+            self.capture_thread = threading.Thread(target=self.capture_frames_thread, daemon=True)
+            self.capture_thread.start()
+            
+            # Start processing thread
+            self.processing_thread = threading.Thread(target=self.process_frames_thread, daemon=True)
+            self.processing_thread.start()
+            
+            print("✅ Threads started successfully")
+            
+            # Main display loop
+            while True:
                 try:
-                    frame = self.rotate_frame(frame)
-                except Exception as e:
-                    print(f"⚠️  Frame rotation error: {e}")
-                
-                # Apply binary threshold
-                try:
-                    binary_frame = self.apply_binary_threshold(frame)
-                except Exception as e:
-                    print(f"⚠️  Binary threshold error: {e}")
-                    binary_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if len(frame.shape) == 3 else frame
-                
-                # Detect circles
-                try:
-                    circles = self.detect_circles(binary_frame)
-                except Exception as e:
-                    print(f"⚠️  Circle detection error: {e}")
-                    circles = []
-                
-                # Handle three-stage analysis workflow
-                try:
-                    if self.analysis_mode == "stage1_analysis":
-                        # Stage 1: Track circles during initial analysis phase
-                        self.match_circles_to_history(circles, current_time, binary_frame)
-                        
-                        # Check if stage 1 analysis period is complete
-                        elapsed_time = current_time - self.analysis_start_time
-                        if elapsed_time >= self.config["analysis_duration"]:
-                            print(f"\n🔍 Stage 1 complete! Generating 3 ROI areas...")
-                            
-                            # Calculate frequencies and generate 3 ROI areas
-                            self.calculate_circle_frequencies()
-                            self.generate_stage1_rois()
-                            
-                            # Switch to stage 2 analysis
-                            self.analysis_mode = "stage2_analysis"
-                            self.stage2_start_time = time.time()
-                            
-                            # Reset tracking for stage 2
-                            self.circle_history = {}
-                            self.next_circle_id = 1
-                            
-                            print(f"✅ Stage 1 → Stage 2: Analyzing {len(self.stage1_rois)} ROI areas")
-                            
-                    elif self.analysis_mode == "stage2_analysis":
-                        # Stage 2: Track circles in the 3 ROI areas
-                        self.match_circles_to_history(circles, current_time, binary_frame)
-                        
-                        # Check if stage 2 analysis period is complete
-                        elapsed_time = current_time - self.stage2_start_time
-                        if elapsed_time >= self.config["stage2_analysis_duration"]:
-                            print(f"\n🎯 Stage 2 complete! Identifying final LED locations...")
-                            
-                            # Calculate frequencies and identify final LEDs
-                            self.calculate_circle_frequencies()
-                            self.generate_led_rois()
-                            
-                            # Switch to final tracking mode
-                            self.analysis_mode = "final_tracking"
-                            
-                            print(f"🏆 Final Stage: Found {len(self.confirmed_leds)} confirmed LEDs at 2Hz")
-                            for i, led in enumerate(self.confirmed_leds):
-                                print(f"   LED{i+1}: ({led['x']}, {led['y']}) - Frequency: {led['frequency']:.2f}Hz - Confidence: {led.get('confidence', 0):.2f}")
-                            
-                            if len(self.confirmed_leds) == 0:
-                                print("⚠️  No LEDs found in Stage 2. Restarting analysis...")
-                                # Restart from stage 1
-                                self.analysis_start_time = time.time()
-                                self.analysis_mode = "stage1_analysis"
-                                self.circle_history = {}
-                                self.next_circle_id = 1
-                                self.stage1_rois = []
-                                
-                except Exception as e:
-                    print(f"⚠️  Stage analysis error: {e}")
-                
-                # Process detected circles
-                try:
-                    detection_data = {
-                        "total_circles": len(circles),
-                        "circles": [],
-                        "analysis_mode": self.analysis_mode,
-                        "confirmed_leds": len(self.confirmed_leds)
-                    }
+                    # Get latest frame and detection data
+                    with self.frame_lock:
+                        if self.latest_frame is not None:
+                            display_frame = self.latest_frame.copy()
+                            detection_data = self.latest_detection_data.copy() if self.latest_detection_data else None
+                        else:
+                            # No frame available yet
+                            time.sleep(0.01)
+                            continue
                     
-                    if len(circles) > 0:
-                        ref_x = self.config["reference_x"]
-                        ref_y = self.config["reference_y"]
-                        
-                        # Process each circle
-                        for i, circle in enumerate(circles):
-                            circle_data = self.calculate_distance(circle)
-                            circle_data["circle_id"] = i + 1
-                            
-                            # Add frequency information if available
-                            circle_frequency = 0.0
-                            is_led = False
-                            for circle_id, history in self.circle_history.items():
-                                if len(history['positions']) > 0:
-                                    last_pos = history['positions'][-1]
-                                    distance = np.sqrt((circle[0] - last_pos[0])**2 + (circle[1] - last_pos[1])**2)
-                                    if distance < 20:  # Close enough to be same circle
-                                        circle_frequency = history['frequency']
-                                        is_led = history['is_led']
-                                        break
-                            
-                            circle_data["frequency"] = circle_frequency
-                            circle_data["is_led"] = is_led
-                            detection_data["circles"].append(circle_data)
-                        
-                        # For backward compatibility, also include the closest circle as main detection
-                        distances_to_ref = [np.sqrt((c[0] - ref_x)**2 + (c[1] - ref_y)**2) for c in circles]
-                        closest_circle_idx = np.argmin(distances_to_ref)
-                        closest_circle = circles[closest_circle_idx]
-                        
-                        # Calculate distance data for closest circle (for compatibility)
-                        main_detection = self.calculate_distance(closest_circle)
-                        detection_data.update(main_detection)  # Add main detection data
-                        
-                        # Save data
-                        self.save_data(detection_data)
-                        
-                except Exception as e:
-                    print(f"⚠️  Detection data processing error: {e}")
-                    detection_data = {"total_circles": 0, "circles": [], "analysis_mode": self.analysis_mode, "confirmed_leds": 0}
-                
-                # Draw detection information
-                try:
-                    display_frame = self.draw_detection_info(frame, binary_frame, circles, detection_data)
-                except Exception as e:
-                    print(f"⚠️  Drawing detection info error: {e}")
-                    display_frame = frame
-                
-                # Prepare display
-                try:
-                    if self.config["show_binary_frame"]:
-                        # Convert binary to color for display
-                        binary_color = cv2.cvtColor(binary_frame, cv2.COLOR_GRAY2BGR)
-                        # Concatenate original and binary frames
-                        combined_frame = np.hstack((display_frame, binary_color))
-                    else:
-                        combined_frame = display_frame
+                    # Update FPS counter
+                    self.update_fps_counter()
                     
-                    # Resize for display
-                    display_resized = cv2.resize(combined_frame, 
-                                               (self.config["display_width"], self.config["display_height"]))
-                    
-                    # Show frame
-                    cv2.imshow(window_name, display_resized)
-                    
-                except Exception as e:
-                    print(f"⚠️  Display preparation error: {e}")
+                    # Draw detection information
                     try:
-                        cv2.imshow(window_name, frame)
-                    except:
-                        print("❌ Cannot display frame at all")
-                
-                # Handle keyboard input with comprehensive controls
-                try:
+                        if detection_data:
+                            # Apply binary threshold for display
+                            binary_frame = self.apply_binary_threshold(display_frame)
+                            
+                            # Extract circles from detection data
+                            circles = []
+                            if detection_data.get("circles"):
+                                for circle_data in detection_data["circles"]:
+                                    # Reconstruct circle array [x, y, radius] from detection data
+                                    x = circle_data.get("x", 0)
+                                    y = circle_data.get("y", 0) 
+                                    radius = circle_data.get("radius", 5)
+                                    circles.append([x, y, radius])
+                            
+                            # Draw detection info with actual circles
+                            annotated_frame = self.draw_detection_info(display_frame, binary_frame, circles, detection_data)
+                        else:
+                            # No detection data yet
+                            annotated_frame = display_frame
+                            
+                    except Exception as e:
+                        print(f"⚠️  Drawing error: {e}")
+                        annotated_frame = display_frame
+                    
+                    # Prepare display
+                    try:
+                        # Resize for display
+                        display_resized = cv2.resize(annotated_frame, 
+                                                   (self.config["display_width"], self.config["display_height"]))
+                        
+                        # Show frame
+                        cv2.imshow(window_name, display_resized)
+                        
+                    except Exception as e:
+                        print(f"⚠️  Display error: {e}")
+                        try:
+                            cv2.imshow(window_name, display_frame)
+                        except:
+                            print("❌ Cannot display frame at all")
+                    
+                    # Handle keyboard input
                     key = cv2.waitKey(1) & 0xFF
                     
                     if key == 27 or key == ord('q'):  # ESC or 'q' to quit
                         break
-                        
-                    # Restart frequency analysis
-                    elif key == ord(' '):  # SPACE to restart analysis
-                        print("\n🔄 Restarting three-stage analysis...")
-                        self.analysis_start_time = time.time()
-                        self.analysis_mode = "stage1_analysis"
-                        self.circle_history = {}
-                        self.next_circle_id = 1
-                        self.confirmed_leds = []
-                        self.led_rois = []
-                        self.stage1_rois = []
-                        self.stage2_start_time = None
-                        
-                    # Binary threshold controls
-                    elif key == ord('+') or key == ord('='):  # '+' to increase threshold
-                        self.config["binary_threshold"] = min(255, self.config["binary_threshold"] + 5)
-                    elif key == ord('-') or key == ord('_'):  # '-' to decrease threshold
-                        self.config["binary_threshold"] = max(0, self.config["binary_threshold"] - 5)
-                        
-                    # Reference position controls (Arrow keys + TFGH alternative for compatibility)
-                    elif key == 82 or key == 0 or key == ord('t') or key == ord('T'):  # Up arrow or T
-                        self.config["reference_y"] = max(0, self.config["reference_y"] - 5)
-                    elif key == 84 or key == 1 or key == ord('g') or key == ord('G'):  # Down arrow or G
-                        self.config["reference_y"] = min(960, self.config["reference_y"] + 5)
-                    elif key == 81 or key == 2 or key == ord('f') or key == ord('F'):  # Left arrow or F
-                        self.config["reference_x"] = max(0, self.config["reference_x"] - 5)
-                    elif key == 83 or key == 3 or key == ord('h') or key == ord('H'):  # Right arrow or H
-                        self.config["reference_x"] = min(1280, self.config["reference_x"] + 5)
-                        
-                    # Radius controls
-                    elif key == ord('1'):  # Decrease min radius
-                        self.config["min_radius"] = max(1, self.config["min_radius"] - 1)
-                    elif key == ord('2'):  # Increase min radius
-                        self.config["min_radius"] = min(self.config["max_radius"] - 1, self.config["min_radius"] + 1)
-                    elif key == ord('3'):  # Decrease max radius
-                        self.config["max_radius"] = max(self.config["min_radius"] + 1, self.config["max_radius"] - 1)
-                    elif key == ord('4'):  # Increase max radius
-                        self.config["max_radius"] = min(100, self.config["max_radius"] + 1)
-                        
-                    # ROI controls (updated to avoid conflicts)
-                    elif key == ord('u'):  # Decrease ROI x_min
-                        self.config["roi_x_min"] = max(0, self.config["roi_x_min"] - 10)
-                    elif key == ord('i'):  # Increase ROI x_min
-                        self.config["roi_x_min"] = min(self.config["roi_x_max"] - 50, self.config["roi_x_min"] + 10)
-                    elif key == ord('o'):  # Decrease ROI x_max
-                        self.config["roi_x_max"] = max(self.config["roi_x_min"] + 50, self.config["roi_x_max"] - 10)
-                    elif key == ord('p'):  # Increase ROI x_max
-                        self.config["roi_x_max"] = min(1280, self.config["roi_x_max"] + 10)
-                    elif key == ord('j'):  # Decrease ROI y_min
-                        self.config["roi_y_min"] = max(0, self.config["roi_y_min"] - 10)
-                    elif key == ord('k'):  # Increase ROI y_min
-                        self.config["roi_y_min"] = min(self.config["roi_y_max"] - 50, self.config["roi_y_min"] + 10)
-                    elif key == ord('l'):  # Decrease ROI y_max
-                        self.config["roi_y_max"] = max(self.config["roi_y_min"] + 50, self.config["roi_y_max"] - 10)
-                    elif key == ord(';'):  # Increase ROI y_max
-                        self.config["roi_y_max"] = min(960, self.config["roi_y_max"] + 10)
-                        
-                    # HoughCircles parameter controls
-                    elif key == ord('z'):  # Decrease dp (resolution ratio)
-                        self.config["hough_dp"] = max(0.2, self.config["hough_dp"] - 0.2)
-                    elif key == ord('x'):  # Increase dp (resolution ratio)
-                        self.config["hough_dp"] = min(3.0, self.config["hough_dp"] + 0.2)
-                    elif key == ord('c'):  # Decrease minDist
-                        self.config["hough_min_dist"] = max(5, self.config["hough_min_dist"] - 5)
-                    elif key == ord('v'):  # Increase minDist
-                        self.config["hough_min_dist"] = min(100, self.config["hough_min_dist"] + 5)
-                    elif key == ord('b'):  # Decrease param1 (Canny threshold)
-                        self.config["hough_param1"] = max(10, self.config["hough_param1"] - 5)
-                    elif key == ord('n'):  # Increase param1 (Canny threshold)
-                        self.config["hough_param1"] = min(200, self.config["hough_param1"] + 5)
-                        
-                    # Frame rotation controls
-                    elif key == ord('['):  # Rotate 90° clockwise
-                        self.config["rotation_angle"] = (self.config["rotation_angle"] + 90) % 360
-                        print(f"🔄 Frame rotated to {self.config['rotation_angle']}°")
-                    elif key == ord(']'):  # Rotate 90° clockwise (same as [)
-                        self.config["rotation_angle"] = (self.config["rotation_angle"] + 90) % 360
-                        print(f"🔄 Frame rotated to {self.config['rotation_angle']}°")
-                        
-                    # Save frames and Config reload
-                    elif key == ord('s'):  # 's' to save current frame
-                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        frame_filename = f"frame_{timestamp}.jpg"
-                        binary_filename = f"binary_{timestamp}.jpg"
-                        
-                        cv2.imwrite(frame_filename, frame)
-                        cv2.imwrite(binary_filename, binary_frame)
-                        
-                        # Get current working directory to show full path
-                        import os
-                        current_dir = os.getcwd()
-                        print(f"📸 Frames saved:")
-                        print(f"   Original: {os.path.join(current_dir, frame_filename)}")
-                        print(f"   Binary:   {os.path.join(current_dir, binary_filename)}")
-                        
-                    elif key == ord('r'):  # 'r' to reload config (changed from 'c' to avoid conflict)
-                        try:
-                            with open("circle_detection_config.json", 'r') as f:
-                                loaded_config = json.load(f)
-                                self.config.update(loaded_config)
-                            print("🔄 Configuration reloaded from file")
-                        except Exception as e:
-                            print(f"❌ Error reloading config: {e}")
-                            
-                except Exception as e:
-                    print(f"⚠️  Keyboard input error: {e}")
                     
-            except Exception as e:
-                print(f"❌ Critical error in main loop: {e}")
-                import traceback
-                traceback.print_exc()
-                # Add a small delay to prevent rapid error loops
-                time.sleep(0.1)
+                    # Handle parameter updates (thread-safe)
+                    self.handle_keyboard_input(key)
+                        
+                except Exception as e:
+                    print(f"❌ Error in main display loop: {e}")
+                    time.sleep(0.1)
+                    
+        except Exception as e:
+            print(f"❌ Critical error in threaded run: {e}")
+            import traceback
+            traceback.print_exc()
+            
+        finally:
+            # Stop threads
+            print("🛑 Stopping threads...")
+            self.stop_threads.set()
+            
+            # Wait for threads to finish
+            if self.capture_thread and self.capture_thread.is_alive():
+                self.capture_thread.join(timeout=2)
+                
+            if self.processing_thread and self.processing_thread.is_alive():
+                self.processing_thread.join(timeout=2)
+            
+            # Cleanup
+            self.cap.release()
+            cv2.destroyAllWindows()
+            
+            print("🏁 Threaded detection completed")
+            
+            # Print final performance summary
+            if self.processing_times:
+                avg_processing_time = np.mean(self.processing_times)
+                print(f"\n📊 PERFORMANCE SUMMARY:")
+                print(f"Average processing time: {avg_processing_time:.1f}ms")
+                print(f"Current FPS: {self.current_fps:.1f}")
+                print(f"Analysis mode: {self.analysis_mode}")
+                print(f"Confirmed LEDs: {len(self.confirmed_leds)}")
+
+    def draw_threaded_detection_info(self, frame, detection_data):
+        """Simplified drawing for threaded operation"""
+        try:
+            # Get frame dimensions for center calculation
+            frame_height, frame_width = frame.shape[:2]
+            center_x = frame_width // 2
+            center_y = frame_height // 2
+            
+            # Thread-safe config access
+            with self.config_lock:
+                ref_x = self.config["reference_x"]
+                ref_y = self.config["reference_y"]
+                show_info = self.config["show_detection_info"]
+            
+            # Draw camera center
+            cv2.circle(frame, (center_x, center_y), 8, (255, 0, 255), 2)
+            cv2.putText(frame, "CENTER", (center_x + 15, center_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255), 2)
+            
+            # Draw reference position
+            cv2.circle(frame, (ref_x, ref_y), 10, (0, 255, 0), 2)
+            cv2.putText(frame, "REF", (ref_x + 15, ref_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            
+            # Draw line from center to reference
+            cv2.line(frame, (center_x, center_y), (ref_x, ref_y), (255, 0, 255), 2)
+            
+            # Draw ROI boundaries based on current mode
+            if self.analysis_mode == "stage1_analysis":
+                with self.config_lock:
+                    cv2.rectangle(frame, 
+                                 (self.config["roi_x_min"], self.config["roi_y_min"]), 
+                                 (self.config["roi_x_max"], self.config["roi_y_max"]), 
+                                 (255, 255, 0), 2)
+            elif self.analysis_mode == "stage2_analysis":
+                # Draw 3 Stage 1 ROI areas
+                colors = [(255, 165, 0), (255, 20, 147), (0, 191, 255)]
+                for i, stage1_roi in enumerate(self.stage1_rois):
+                    color = colors[i % len(colors)]
+                    cv2.rectangle(frame,
+                                 (stage1_roi['x_min'], stage1_roi['y_min']),
+                                 (stage1_roi['x_max'], stage1_roi['y_max']),
+                                 color, 3)
+                    cv2.putText(frame, f"ROI{stage1_roi['roi_id']}", 
+                               (stage1_roi['x_min'] + 5, stage1_roi['y_min'] + 20), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+            else:
+                # Draw final LED ROI areas
+                for led_roi in self.led_rois:
+                    cv2.rectangle(frame,
+                                 (led_roi['x_min'], led_roi['y_min']),
+                                 (led_roi['x_max'], led_roi['y_max']),
+                                 (0, 255, 0), 2)
+            
+            # Display detection information
+            if show_info and detection_data:
+                info_y = 30
+                
+                # Show current mode and analysis progress
+                if self.analysis_mode == "stage1_analysis":
+                    elapsed_time = time.time() - self.start_time if self.start_time else 0
+                    with self.config_lock:
+                        remaining_time = max(0, self.config["analysis_duration"] - elapsed_time)
+                    cv2.putText(frame, f"STAGE 1: INITIAL ANALYSIS... {remaining_time:.1f}s", (10, info_y), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+                    info_y += 30
+                elif self.analysis_mode == "stage2_analysis":
+                    elapsed_time = time.time() - self.stage2_start_time if self.stage2_start_time else 0
+                    with self.config_lock:
+                        remaining_time = max(0, self.config["stage2_analysis_duration"] - elapsed_time)
+                    cv2.putText(frame, f"STAGE 2: ANALYZING 3 ROIs... {remaining_time:.1f}s", (10, info_y), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 165, 0), 2)
+                    info_y += 30
+                else:
+                    cv2.putText(frame, f"FINAL: LED TRACKING - {len(self.confirmed_leds)} LEDs", (10, info_y), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                    info_y += 30
+                
+                # Performance info
+                cv2.putText(frame, f"FPS: {self.current_fps:.1f}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+                info_y += 25
+                
+                if self.processing_times:
+                    avg_processing_time = np.mean(list(self.processing_times)[-10:])  # Last 10 frames
+                    cv2.putText(frame, f"Process: {avg_processing_time:.1f}ms", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+                    info_y += 25
+                
+                cv2.putText(frame, f"Circles: {detection_data.get('total_circles', 0)}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                info_y += 25
+                
+                with self.config_lock:
+                    cv2.putText(frame, f"Target Freq: {self.config['target_frequency']}Hz", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                    info_y += 25
+                    cv2.putText(frame, f"Binary threshold: {self.config['binary_threshold']}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                    info_y += 25
+                    cv2.putText(frame, f"Reference: ({ref_x}, {ref_y})", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                    info_y += 25
+                    cv2.putText(frame, f"Radius: {self.config['min_radius']}-{self.config['max_radius']}", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                    info_y += 25
+                    cv2.putText(frame, f"ROI: X({self.config['roi_x_min']}-{self.config['roi_x_max']}) Y({self.config['roi_y_min']}-{self.config['roi_y_max']})", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                    info_y += 20
+                    cv2.putText(frame, f"HoughDP: {self.config['hough_dp']:.1f} (z/x)", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                    info_y += 20
+                    cv2.putText(frame, f"HoughMinDist: {self.config['hough_min_dist']} (c/v)", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                    info_y += 20
+                    cv2.putText(frame, f"HoughParam1: {self.config['hough_param1']} (b/n)", (10, info_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            
+            # Display mouse cursor position (always show)
+            info_y = frame.shape[0] - 60
+            cv2.putText(frame, f"Mouse: ({self.mouse_x}, {self.mouse_y})", (10, info_y), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+            
+            info_y += 20
+            cv2.putText(frame, "🧵 THREADED MODE - Click to get coordinates", (10, info_y), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+            
+            return frame
+            
+        except Exception as e:
+            print(f"⚠️  Error in draw_threaded_detection_info: {e}")
+            return frame
+
+    def handle_keyboard_input(self, key):
+        """Handle keyboard input with thread-safe parameter updates"""
+        try:
+            with self.config_lock:
+                # Binary frame toggle
+                if key == ord(' '):  # SPACE to toggle binary frame view
+                    self.config["show_binary_frame"] = not self.config["show_binary_frame"]
+                    print(f"🔧 Binary frame display: {'ON' if self.config['show_binary_frame'] else 'OFF'}")
+                    
+                # Restart frequency analysis
+                elif key == ord('r'):  # 'r' to restart analysis
+                    print("\n🔄 Restarting three-stage analysis...")
+                    self.start_time = time.time()
+                    self.analysis_mode = "stage1_analysis"
+                    self.circle_history = {}
+                    self.next_circle_id = 1
+                    self.confirmed_leds = []
+                    self.led_rois = []
+                    self.stage1_rois = []
+                    self.stage2_start_time = None
+                    
+                # Binary threshold controls
+                elif key == ord('+') or key == ord('='):
+                    self.config["binary_threshold"] = min(255, self.config["binary_threshold"] + 5)
+                    print(f"🔧 Binary threshold: {self.config['binary_threshold']}")
+                elif key == ord('-') or key == ord('_'):
+                    self.config["binary_threshold"] = max(0, self.config["binary_threshold"] - 5)
+                    print(f"🔧 Binary threshold: {self.config['binary_threshold']}")
+                    
+                # Reference position controls
+                elif key == 82 or key == 0 or key == ord('t') or key == ord('T'):  # Up arrow or T
+                    self.config["reference_y"] = max(0, self.config["reference_y"] - 5)
+                elif key == 84 or key == 1 or key == ord('g') or key == ord('G'):  # Down arrow or G
+                    self.config["reference_y"] = min(960, self.config["reference_y"] + 5)
+                elif key == 81 or key == 2 or key == ord('f') or key == ord('F'):  # Left arrow or F
+                    self.config["reference_x"] = max(0, self.config["reference_x"] - 5)
+                elif key == 83 or key == 3 or key == ord('h') or key == ord('H'):  # Right arrow or H
+                    self.config["reference_x"] = min(1280, self.config["reference_x"] + 5)
+                    
+                # Radius controls
+                elif key == ord('1'):
+                    self.config["min_radius"] = max(1, self.config["min_radius"] - 1)
+                    print(f"🔧 Min radius: {self.config['min_radius']}")
+                elif key == ord('2'):
+                    self.config["min_radius"] = min(self.config["max_radius"] - 1, self.config["min_radius"] + 1)
+                    print(f"🔧 Min radius: {self.config['min_radius']}")
+                elif key == ord('3'):
+                    self.config["max_radius"] = max(self.config["min_radius"] + 1, self.config["max_radius"] - 1)
+                    print(f"🔧 Max radius: {self.config['max_radius']}")
+                elif key == ord('4'):
+                    self.config["max_radius"] = min(100, self.config["max_radius"] + 1)
+                    print(f"🔧 Max radius: {self.config['max_radius']}")
+                    
+                # ROI controls
+                elif key == ord('u'):
+                    self.config["roi_x_min"] = max(0, self.config["roi_x_min"] - 10)
+                elif key == ord('i'):
+                    self.config["roi_x_min"] = min(self.config["roi_x_max"] - 50, self.config["roi_x_min"] + 10)
+                elif key == ord('o'):
+                    self.config["roi_x_max"] = max(self.config["roi_x_min"] + 50, self.config["roi_x_max"] - 10)
+                elif key == ord('p'):
+                    self.config["roi_x_max"] = min(1280, self.config["roi_x_max"] + 10)
+                elif key == ord('j'):
+                    self.config["roi_y_min"] = max(0, self.config["roi_y_min"] - 10)
+                elif key == ord('k'):
+                    self.config["roi_y_min"] = min(self.config["roi_y_max"] - 50, self.config["roi_y_min"] + 10)
+                elif key == ord('l'):
+                    self.config["roi_y_max"] = max(self.config["roi_y_min"] + 50, self.config["roi_y_max"] - 10)
+                elif key == ord(';'):
+                    self.config["roi_y_max"] = min(960, self.config["roi_y_max"] + 10)
+                    
+                # HoughCircles parameter controls
+                elif key == ord('z'):
+                    self.config["hough_dp"] = max(0.2, self.config["hough_dp"] - 0.2)
+                    print(f"🔧 HoughDP: {self.config['hough_dp']:.1f} (Lower = More circles)")
+                elif key == ord('x'):
+                    self.config["hough_dp"] = min(3.0, self.config["hough_dp"] + 0.2)
+                    print(f"🔧 HoughDP: {self.config['hough_dp']:.1f} (Lower = More circles)")
+                elif key == ord('c'):
+                    self.config["hough_min_dist"] = max(5, self.config["hough_min_dist"] - 5)
+                    print(f"🔧 HoughMinDist: {self.config['hough_min_dist']}")
+                elif key == ord('v'):
+                    self.config["hough_min_dist"] = min(100, self.config["hough_min_dist"] + 5)
+                    print(f"🔧 HoughMinDist: {self.config['hough_min_dist']}")
+                elif key == ord('b'):
+                    self.config["hough_param1"] = max(10, self.config["hough_param1"] - 5)
+                    print(f"🔧 HoughParam1: {self.config['hough_param1']}")
+                elif key == ord('n'):
+                    self.config["hough_param1"] = min(200, self.config["hough_param1"] + 5)
+                    print(f"🔧 HoughParam1: {self.config['hough_param1']}")
+                elif key == ord('m'):
+                    self.config["accumulator_threshold"] = max(5, self.config["accumulator_threshold"] - 2)
+                    print(f"🔧 AccumulatorThreshold: {self.config['accumulator_threshold']} (Lower = More circles)")
+                elif key == ord(','):
+                    self.config["accumulator_threshold"] = min(50, self.config["accumulator_threshold"] + 2)
+                    print(f"🔧 AccumulatorThreshold: {self.config['accumulator_threshold']} (Lower = More circles)")
+                    
+                # Binary frame toggle
+                elif key == ord(' '):  # SPACE to toggle binary frame view
+                    self.config["show_binary_frame"] = not self.config["show_binary_frame"]
+                    print(f"🔧 Binary frame display: {'ON' if self.config['show_binary_frame'] else 'OFF'}")
+                    
+                # Restart analysis (moved to 'r' key)
+                elif key == ord('r'):  # 'r' to restart analysis
+                    print("\n🔄 Restarting three-stage analysis...")
+                    self.start_time = time.time()
+                    self.analysis_mode = "stage1_analysis"
+                    self.circle_history = {}
+                    self.next_circle_id = 1
+                    self.confirmed_leds = []
+                    self.led_rois = []
+                    self.stage1_rois = []
+                    self.stage2_start_time = None
+                    
+                # Frame rotation controls
+                elif key == ord('[') or key == ord(']'):
+                    self.config["rotation_angle"] = (self.config["rotation_angle"] + 90) % 360
+                    print(f"🔄 Frame rotated to {self.config['rotation_angle']}°")
+                    
+                # Save frames
+                elif key == ord('s'):
+                    with self.frame_lock:
+                        if self.latest_frame is not None:
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            frame_filename = f"frame_{timestamp}.jpg"
+                            cv2.imwrite(frame_filename, self.latest_frame)
+                            print(f"📸 Frame saved: {frame_filename}")
         
-        # Cleanup
-        self.cap.release()
-        cv2.destroyAllWindows()
-        
-        # Print final parameter summary
-        print("\n" + "="*50)
-        print("FINAL LED DETECTION RESULTS:")
-        print("="*50)
-        print(f"Analysis mode: {self.analysis_mode}")
-        print(f"Confirmed LEDs: {len(self.confirmed_leds)}")
-        for i, led in enumerate(self.confirmed_leds):
-            print(f"  LED{i+1}: Position({led['x']}, {led['y']}) - Frequency: {led['frequency']:.2f}Hz")
-        print(f"Total tracked circles: {len(self.circle_history)}")
-        print(f"Total data entries saved: {len(self.data_log)}")
-        print("Detection stopped")
+        except Exception as e:
+            print(f"⚠️  Keyboard input error: {e}")
+
+
+
+# Default configuration
+CONFIG = {
+    # Camera settings
+    "camera_index": 0,
+    "rtsp_url": "rtsp://169.254.160.162:8554/0/unicast",
+    "rtsp_username": "",
+    "rtsp_password": "",
+    "use_rtsp": True,
+    
+    # Display settings
+    "display_width": 1024,
+    "display_height": 576,
+    "show_binary_frame": False,
+    "show_detection_info": True,
+    
+    # Detection parameters
+    "binary_threshold": 150,
+    "min_radius": 3,
+    "max_radius": 25,
+    "hough_dp": 1.5,
+    "hough_min_dist": 20,
+    "hough_param1": 50,
+    "accumulator_threshold": 15,
+    
+    # ROI settings
+    "roi_x_min": 400,
+    "roi_x_max": 880,
+    "roi_y_min": 250,
+    "roi_y_max": 470,
+    
+    # Frequency analysis
+    "target_frequency": 2.0,
+    "frequency_tolerance": 0.5,
+    "analysis_duration": 5.0,
+    "min_detection_count": 8,
+    "brightness_threshold": 0.6,
+    "size_consistency_threshold": 3.0,
+    
+    # Stage settings
+    "stage1_roi_size": 120,
+    "stage1_roi_count": 3,
+    "stage2_analysis_duration": 5.0,
+    "led_roi_padding": 30,
+    
+    # Reference position
+    "reference_x": 640,
+    "reference_y": 360,
+    
+    # Frame processing
+    "rotation_angle": 0,
+    
+    # Data saving
+    "save_data": True,
+    "data_filename": "led_detection_data.json"
+}
 
 def load_config(config_file="circle_detection_config.json"):
     """Load configuration from file or create default"""
