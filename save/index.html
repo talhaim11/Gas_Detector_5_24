@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Save the Date</title>
+  <style>
+    body { font-family: system-ui, Arial; margin: 0; padding: 18px; text-align: center; }
+    .wrap { max-width: 520px; margin: 0 auto; }
+    #grid { display: grid; gap: 6px; margin-top: 14px; user-select: none; touch-action: manipulation; }
+    .tile {
+      width: 100%;
+      aspect-ratio: 1/1;
+      background-image: url('photo.png');
+      background-size: 300% 300%;
+      border-radius: 14px;
+      outline: 3px solid transparent;
+      box-shadow: 0 2px 10px rgba(0,0,0,.08);
+    }
+    .selected { outline-color: #111; }
+    #msg { margin-top: 14px; font-size: 18px; line-height: 1.45; }
+    button { padding: 10px 14px; border-radius: 12px; border: 1px solid #ccc; background: #fff; }
+    .hint { font-size: 13px; opacity: .75; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>Save the Date — פאזל קצר</h2>
+    <div class="hint">לוחצים על חתיכה ואז על חתיכה אחרת כדי להחליף ביניהן</div>
+
+    <div style="margin-top:10px">
+      <button id="shuffleBtn">ערבב שוב</button>
+    </div>
+
+    <div id="grid" aria-label="פאזל"></div>
+    <div id="msg"></div>
+
+    <audio id="finishAudio" preload="auto" src="audio.mp3"></audio>
+  </div>
+
+<script>
+(() => {
+  const N = 3; // 3x3
+  const grid = document.getElementById('grid');
+  const msg  = document.getElementById('msg');
+  const audio = document.getElementById('finishAudio');
+  const shuffleBtn = document.getElementById('shuffleBtn');
+
+  grid.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+
+  let order = [...Array(N*N).keys()]; // order[i] = piece index sitting in slot i
+  let selectedIndex = null;
+  let finished = false;
+
+  function render() {
+    grid.innerHTML = '';
+    for (let slot = 0; slot < N*N; slot++) {
+      const piece = order[slot];
+      const r = Math.floor(piece / N);
+      const c = piece % N;
+
+      const div = document.createElement('div');
+      div.className = 'tile' + (slot === selectedIndex ? ' selected' : '');
+      div.style.backgroundPosition = `${(c/(N-1))*100}% ${(r/(N-1))*100}%`;
+      div.dataset.slot = slot;
+
+      div.addEventListener('click', () => onTileClick(slot), { passive: true });
+      grid.appendChild(div);
+    }
+  }
+
+  function onTileClick(slot) {
+    if (finished) return;
+
+    if (selectedIndex === null) {
+      selectedIndex = slot;
+      render();
+      return;
+    }
+
+    // swap
+    [order[selectedIndex], order[slot]] = [order[slot], order[selectedIndex]];
+    selectedIndex = null;
+    render();
+
+    checkWinAndFinish();
+  }
+
+  function checkWinAndFinish() {
+    const win = order.every((v, idx) => v === idx);
+    if (!win) { msg.textContent = ''; return; }
+
+    finished = true;
+    msg.innerHTML = `<b>Save the Date</b><br>05.05.2026`;
+
+    // Try to play immediately after the last user click (common requirement on mobile)
+    audio.play().catch(() => {
+      // Fallback button if autoplay is blocked
+      const b = document.createElement('button');
+      b.textContent = 'נגן אודיו';
+      b.onclick = () => audio.play();
+      msg.appendChild(document.createElement('br'));
+      msg.appendChild(b);
+    });
+  }
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function reset() {
+    finished = false;
+    selectedIndex = null;
+
+    // ensure not already solved
+    do { order = shuffle([...Array(N*N).keys()]); }
+    while (order.every((v, idx) => v === idx));
+
+    msg.textContent = '';
+    render();
+  }
+
+  shuffleBtn.addEventListener('click', reset, { passive: true });
+  reset();
+})();
+</script>
+</body>
+</html>
