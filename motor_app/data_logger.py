@@ -7,6 +7,8 @@ import csv
 from pathlib import Path
 from datetime import datetime
 from typing import List, Union, Optional
+import openpyxl
+from openpyxl.utils import get_column_letter
 
 from motor_app.config import (
     DATA_SAVE_DIR,
@@ -85,6 +87,13 @@ def save_scan_csv(
     return path
 
 
+def _safe_float(value, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 class DataLogger:
     """
     Wraps save_scan_csv and optional live buffer for UI.
@@ -114,24 +123,46 @@ class DataLogger:
 
     def save_ratio_measurements(self, rows: List[dict]) -> Path:
         """
-        Save manual ratio measurements (live sensor data) to a simple CSV:
-        columns: timestamp, signal_2.0/2.1_M, signal_2.3_M, ratio_raw, ratio_calibrated.
+        Save manual ratio measurements to Excel (.xlsx).
+        Columns: timestamp, signal_2.0/2.1_M, signal_2.3_M,
+                 signal_2.0/2.1_normalized, signal_2.3_normalized,
+                 ratio_raw, ratio_calibrated.
+        Normalized = value / max(column); max is computed over non-zero values.
         """
         now = datetime.now()
         date_str = now.strftime(CSV_FILENAME_DATE_FMT)
         time_str = now.strftime(CSV_FILENAME_TIME_FMT)
-        path = self.save_dir / f"ratio_{date_str}_{time_str}.csv"
-        with open(path, "w", newline="", encoding="utf-8") as f:
-            w = csv.writer(f)
-            w.writerow(["timestamp", "signal_2.0/2.1_M", "signal_2.3_M", "ratio_raw", "ratio_calibrated"])
-            for r in rows:
-                w.writerow(
-                    [
-                        r.get("timestamp", ""),
-                        r.get("signal_2_0_2_1_M", ""),
-                        r.get("signal_2_3_M", ""),
-                        r.get("ratio_raw", ""),
-                        r.get("ratio_calibrated", ""),
-                    ]
-                )
+        path = self.save_dir / f"ratio_{date_str}_{time_str}.xlsx"
+        sig1_vals = [_safe_float(r.get("signal_2_0_2_1_M"), 0.0) for r in rows]
+        sig3_vals = [_safe_float(r.get("signal_2_3_M"), 0.0) for r in rows]
+        max_sig1 = max((v for v in sig1_vals if v > 0), default=1.0)
+        max_sig3 = max((v for v in sig3_vals if v > 0), default=1.0)
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append([
+            "timestamp",
+            "signal_2.0/2.1_M",
+            "signal_2.3_M",
+            "signal_2.0/2.1_normalized",
+            "signal_2.3_normalized",
+            "ratio_raw",
+            "ratio_calibrated",
+        ])
+
+        # Excel stores width in character units. ~26.5 gives about 190 px.
+        for col_idx in range(1, 8):
+            ws.column_dimensions[get_column_letter(col_idx)].width = 26.5
+
+        for r, s1, s3 in zip(rows, sig1_vals, sig3_vals):
+            ws.append([
+                r.get("timestamp", ""),
+                s1,
+                s3,
+                round(s1 / max_sig1, 6) if s1 > 0 else 0,
+                round(s3 / max_sig3, 6) if s3 > 0 else 0,
+                r.get("ratio_raw", ""),
+                r.get("ratio_calibrated", ""),
+            ])
+
+        wb.save(path)
         return path

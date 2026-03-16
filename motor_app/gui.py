@@ -32,6 +32,9 @@ from motor_app.config import (
 SENSOR_GRAPH_LEN = 100
 SENSOR_UPDATE_MS = 150
 SERIAL_POLL_MS = 50
+AVG_SIGNAL_WINDOW = 5
+AVG_APPEND_MS = 500
+LIVE_RECORD_APPEND_MS = 200
 
 
 # Channel display names (photon sensor signals)
@@ -159,6 +162,14 @@ class MainApp(ttk.Frame):
         self._ratio_var = tk.StringVar(value="--")
         self._sig1_var = tk.StringVar(value="---")
         self._sig3_var = tk.StringVar(value="---")
+        self._sig1_avg_var = tk.StringVar(value="none")
+        self._sig3_avg_var = tk.StringVar(value="none")
+        self._sig1_avg_buffer = []
+        self._sig3_avg_buffer = []
+        self._last_avg_append_ts = 0.0
+        self._record_rate_var = tk.StringVar(value="0.0 Hz")
+        self._record_rate_times = deque()
+        self._last_live_record_ts = 0.0
         self._sample_window_var = tk.IntVar(value=500)
         # Continuous live recording
         self._live_recording = False
@@ -304,6 +315,20 @@ class MainApp(ttk.Frame):
         ttk.Label(auto_f, text="Progress:").pack(anchor=tk.W, padx=2)
         ttk.Label(auto_f, textvariable=self._progress_var, font=("Consolas", 9)).pack(anchor=tk.W, padx=2)
 
+        # Activity log (left panel, below automation)
+        log_f = ttk.LabelFrame(left_panel, text="Activity Log")
+        log_f.pack(fill=tk.BOTH, expand=True, pady=4)
+        _log_container = ttk.Frame(log_f)
+        _log_container.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        self._activity_log = tk.Text(
+            _log_container, height=6, state="disabled",
+            font=("Consolas", 8), bg="#1e1e1e", fg="#cccccc", wrap=tk.WORD,
+        )
+        _log_sb = ttk.Scrollbar(_log_container, orient=tk.VERTICAL, command=self._activity_log.yview)
+        self._activity_log.configure(yscrollcommand=_log_sb.set)
+        _log_sb.pack(side=tk.RIGHT, fill=tk.Y)
+        self._activity_log.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
         # Live sensor (right panel)
         sensor_f = ttk.LabelFrame(right_panel, text="Live Sensor Data")
         sensor_f.pack(fill=tk.BOTH, expand=True, pady=4)
@@ -321,21 +346,29 @@ class MainApp(ttk.Frame):
         ttk.Label(sig_row, textvariable=self._sig1_var, font=("Consolas", 9), width=8).pack(side=tk.LEFT)
         ttk.Label(sig_row, text="signal 2.3:").pack(side=tk.LEFT, padx=(12, 4))
         ttk.Label(sig_row, textvariable=self._sig3_var, font=("Consolas", 9), width=8).pack(side=tk.LEFT)
+        avg_row = ttk.Frame(indicators_f)
+        avg_row.pack(anchor=tk.W, pady=(0, 2))
+        ttk.Label(avg_row, text="avg last 5 (2.0/2.1):").pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Label(avg_row, textvariable=self._sig1_avg_var, font=("Consolas", 9), width=8).pack(side=tk.LEFT)
+        ttk.Label(avg_row, text="avg last 5 (2.3):").pack(side=tk.LEFT, padx=(12, 4))
+        ttk.Label(avg_row, textvariable=self._sig3_avg_var, font=("Consolas", 9), width=8).pack(side=tk.LEFT)
 
         # Controls / legend box
         controls_f = ttk.LabelFrame(sensor_f, text="Controls")
         controls_f.pack(fill=tk.X, padx=4, pady=(2, 4))
         btn_row = ttk.Frame(controls_f)
         btn_row.pack(anchor=tk.W, pady=(0, 2))
-        ttk.Button(btn_row, text="Calibrate (→1)", command=self._on_calibrate_ratio).pack(side=tk.LEFT, padx=2)
-        ttk.Button(btn_row, text="Add point", command=self._on_add_ratio_measurement).pack(side=tk.LEFT, padx=2)
-        ttk.Button(btn_row, text="Save CSV", command=self._on_save_ratio_measurements).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_row, text="(c) Calibrate (→1)", command=self._on_calibrate_ratio).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_row, text="(a) Add point", command=self._on_add_ratio_measurement).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_row, text="(s) Save XLSX", command=self._on_save_ratio_measurements).pack(side=tk.LEFT, padx=2)
         record_row = ttk.Frame(controls_f)
         record_row.pack(anchor=tk.W, pady=(0, 2))
-        self._record_btn = ttk.Button(record_row, text="Record", command=self._on_live_record_start)
+        self._record_btn = ttk.Button(record_row, text="(r) Record", command=self._on_live_record_start)
         self._record_btn.pack(side=tk.LEFT, padx=2)
-        self._stop_record_btn = ttk.Button(record_row, text="Stop record", command=self._on_live_record_stop, state="disabled")
+        self._stop_record_btn = ttk.Button(record_row, text="(t) Stop", command=self._on_live_record_stop, state="disabled")
         self._stop_record_btn.pack(side=tk.LEFT, padx=2)
+        ttk.Label(record_row, text="Actual record rate:").pack(side=tk.LEFT, padx=(12, 4))
+        ttk.Label(record_row, textvariable=self._record_rate_var, font=("Consolas", 9, "bold"), width=8).pack(side=tk.LEFT)
         # Sample window (controls responsiveness vs noise)
         sample_row = ttk.Frame(controls_f)
         sample_row.pack(fill=tk.X, pady=(0, 2))
@@ -362,14 +395,7 @@ class MainApp(ttk.Frame):
         ttk.Button(sample_row2, text="Apply", command=self._on_sample_window_apply).pack(side=tk.LEFT, padx=(2, 0))
         legend_row = ttk.Frame(controls_f)
         legend_row.pack(anchor=tk.W, pady=(0, 2))
-        ttk.Label(legend_row, text="2.0/2.1 (green)", foreground="#00ff00", font=("Consolas", 8)).pack(side=tk.LEFT, padx=2)
-        ttk.Label(legend_row, text="2.3 (blue)", foreground="#00aaff", font=("Consolas", 8)).pack(side=tk.LEFT, padx=8)
-        # Shortcut legend for ratio tools
-        ttk.Label(
-            controls_f,
-            text="Shortcuts: c = Calibrate,  a = Add point,  s = Save CSV",
-            font=("Consolas", 8),
-        ).pack(anchor=tk.W, padx=2, pady=(0, 2))
+        legend_row.pack_forget()
 
         # Live graph
         self._sensor_display = SensorDisplay(sensor_f, num_channels=2)
@@ -422,10 +448,12 @@ class MainApp(ttk.Frame):
         root.bind("<KeyPress-Down>", self._on_key_press)
         root.bind("<KeyRelease-Down>", self._on_key_release)
         root.bind("<KeyPress-space>", self._on_key_press)
-        # Ratio shortcuts: c = calibrate, a = add point, s = save CSV
+        # Ratio shortcuts: c = calibrate, a = add point, s = save xlsx, r = record, t = stop
         root.bind("<KeyPress-c>", self._on_ratio_key)
         root.bind("<KeyPress-a>", self._on_ratio_key)
         root.bind("<KeyPress-s>", self._on_ratio_key)
+        root.bind("<KeyPress-r>", self._on_ratio_key)
+        root.bind("<KeyPress-t>", self._on_ratio_key)
 
     def _bind_focus_stop(self):
         """Bind FocusOut event to stop motor when window loses focus."""
@@ -593,6 +621,14 @@ class MainApp(ttk.Frame):
             self._controller = None
         self._motor_adapter = None
         self._state_var.set(AppState.DISCONNECTED.name)
+        self._sig1_avg_buffer.clear()
+        self._sig3_avg_buffer.clear()
+        self._last_avg_append_ts = 0.0
+        self._record_rate_times.clear()
+        self._last_live_record_ts = 0.0
+        self._record_rate_var.set("0.0 Hz")
+        self._sig1_avg_var.set("none")
+        self._sig3_avg_var.set("none")
         self._update_controls()
         if self._after_id:
             self.after_cancel(self._after_id)
@@ -636,30 +672,68 @@ class MainApp(ttk.Frame):
                     sig3_txt = "0"
                 self._sig1_var.set(sig1_txt)
                 self._sig3_var.set(sig3_txt)
+                now = time.monotonic()
+                if (now - self._last_avg_append_ts) * 1000 >= AVG_APPEND_MS:
+                    self._last_avg_append_ts = now
+                    if sig1_txt not in ("sat", "0"):
+                        try:
+                            self._sig1_avg_buffer.append(float(sig1_txt))
+                        except ValueError:
+                            pass
+                    if sig3_txt not in ("sat", "0"):
+                        try:
+                            self._sig3_avg_buffer.append(float(sig3_txt))
+                        except ValueError:
+                            pass
+                if len(self._sig1_avg_buffer) == AVG_SIGNAL_WINDOW:
+                    self._sig1_avg_var.set(f"{(sum(self._sig1_avg_buffer) / AVG_SIGNAL_WINDOW):.3f}")
+                    self._sig1_avg_buffer.clear()
+                if len(self._sig3_avg_buffer) == AVG_SIGNAL_WINDOW:
+                    self._sig3_avg_var.set(f"{(sum(self._sig3_avg_buffer) / AVG_SIGNAL_WINDOW):.3f}")
+                    self._sig3_avg_buffer.clear()
                 # Continuous live recording: append one row per poll when enabled
                 if self._live_recording:
-                    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-                    self._live_records.append(
-                        {
-                            "timestamp": ts,
-                            "signal_2_0_2_1_M": m1,
-                            "signal_2_3_M": m3,
-                            "ratio_raw": ratio_raw,
-                            "ratio_calibrated": ratio_norm,
-                        }
-                    )
+                    if (now - self._last_live_record_ts) * 1000 >= LIVE_RECORD_APPEND_MS:
+                        self._last_live_record_ts = now
+                        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                        self._live_records.append(
+                            {
+                                "timestamp": ts,
+                                "signal_2_0_2_1_M": m1,
+                                "signal_2_3_M": m3,
+                                "ratio_raw": ratio_raw if ratio_raw is not None else "sat",
+                                "ratio_calibrated": ratio_norm if ratio_norm is not None else "sat",
+                            }
+                        )
+                        self._record_rate_times.append(now)
+                while self._record_rate_times and now - self._record_rate_times[0] > 1.0:
+                    self._record_rate_times.popleft()
+                self._record_rate_var.set(f"{len(self._record_rate_times):.1f} Hz")
                 self._sensor_display.update_values([(m1, sat1), (m3, sat3)])
             self._after_id = self.after(SERIAL_POLL_MS, poll)
         self._after_id = self.after(SERIAL_POLL_MS, poll)
 
     def _on_ratio_key(self, event):
-        """Keyboard shortcuts for ratio tools: c=calibrate, a=add, s=save."""
+        """Keyboard shortcuts for ratio tools: c=calibrate, a=add, s=save, r=record, t=stop."""
         if event.keysym == "c":
             self._on_calibrate_ratio()
         elif event.keysym == "a":
             self._on_add_ratio_measurement()
         elif event.keysym == "s":
             self._on_save_ratio_measurements()
+        elif event.keysym == "r":
+            self._on_live_record_start()
+        elif event.keysym == "t":
+            self._on_live_record_stop()
+
+    def _log_action(self, msg: str):
+        if not hasattr(self, "_activity_log"):
+            return
+        ts = datetime.now().strftime("%H:%M:%S")
+        self._activity_log.config(state="normal")
+        self._activity_log.insert(tk.END, f"[{ts}] {msg}\n")
+        self._activity_log.see(tk.END)
+        self._activity_log.config(state="disabled")
 
     def _on_state_change(self, old: AppState, new: AppState):
         self.after(0, lambda: self._state_var.set(new.name))
@@ -770,16 +844,22 @@ class MainApp(ttk.Frame):
             return
         self._live_records = []
         self._live_recording = True
+        self._record_rate_times.clear()
+        self._last_live_record_ts = 0.0
+        self._record_rate_var.set("0.0 Hz")
         if hasattr(self, "_record_btn") and hasattr(self, "_stop_record_btn"):
             self._record_btn.state(["disabled"])
             self._stop_record_btn.state(["!disabled"])
-        messagebox.showinfo("Record", "Live recording started. Press 'Stop record' to save.")
+        messagebox.showinfo("Record", "Live recording started. Press '(t) Stop' to save.")
 
     def _on_live_record_stop(self):
         """Stop continuous logging and save to CSV via DataLogger."""
         if not self._live_recording:
             return
         self._live_recording = False
+        self._record_rate_times.clear()
+        self._last_live_record_ts = 0.0
+        self._record_rate_var.set("0.0 Hz")
         if hasattr(self, "_record_btn") and hasattr(self, "_stop_record_btn"):
             self._record_btn.state(["!disabled"])
             self._stop_record_btn.state(["disabled"])
@@ -799,35 +879,34 @@ class MainApp(ttk.Frame):
             messagebox.showwarning("Calibrate ratio", "Cannot calibrate: ratio is not available (signals may be 0 or saturated).")
             return
         self._ratio_cal_ref = self._current_ratio_raw
-        messagebox.showinfo("Calibrate ratio", f"Calibration set. Current ratio normalized to 1.0 (raw={self._current_ratio_raw:.3f}).")
+        self._log_action(f"Calibrated: raw ratio {self._current_ratio_raw:.3f} → 1.0")
 
     def _on_add_ratio_measurement(self):
         """Add current ratio point to in-memory list."""
-        if self._last_ratio_norm is None or self._current_ratio_raw is None:
-            messagebox.showwarning("Add point", "No valid ratio to add yet.")
-            return
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         entry = {
             "timestamp": ts,
             "signal_2_0_2_1_M": self._last_m1,
             "signal_2_3_M": self._last_m3,
-            "ratio_raw": self._current_ratio_raw,
-            "ratio_calibrated": self._last_ratio_norm,
+            "ratio_raw": self._current_ratio_raw if self._current_ratio_raw is not None else "sat",
+            "ratio_calibrated": self._last_ratio_norm if self._last_ratio_norm is not None else "sat",
         }
         self._ratio_measurements.append(entry)
-        messagebox.showinfo("Add point", f"Measurement #{len(self._ratio_measurements)} stored.")
+        self._log_action(f"Measurement #{len(self._ratio_measurements)} stored.")
 
     def _on_save_ratio_measurements(self):
         """Save collected ratio measurements to CSV via DataLogger."""
         if not self._ratio_measurements:
-            messagebox.showwarning("Save CSV", "No measurements to save.")
+            messagebox.showwarning("Save XLSX", "No measurements to save.")
             return
         try:
+            count = len(self._ratio_measurements)
             path = self._logger.save_ratio_measurements(self._ratio_measurements)
-            messagebox.showinfo("Save CSV", f"Saved {len(self._ratio_measurements)} measurements to:\n{path}")
             self._ratio_measurements = []
+            self._log_action(f"Saved {count} measurements → {path.name}")
+            messagebox.showinfo("Save", f"Saved {count} measurements to:\n{path}")
         except Exception as exc:
-            messagebox.showerror("Save CSV", f"Failed to save measurements:\n{exc}")
+            messagebox.showerror("Save", f"Failed to save measurements:\n{exc}")
 
     def _start_scan(self, direction: str):
         if not self._controller or self._controller.state != AppState.AUTO_IDLE:
