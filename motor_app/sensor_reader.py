@@ -1,7 +1,7 @@
 """
-Live sensor reader: 16-byte packets (0xFF), Ch1 and Ch3.
-Samples the ~6µs photon flash (once per 0.5s): accumulate samples, median of values > 70k.
-Saturation > ~8M displayed as 'sat'. get_latest() -> ((ch1_millions, sat1), (ch3_millions, sat3)).
+Live sensor reader: 16-byte packets (0xFF), Ch1-Ch4.
+Samples the ~6us photon flash (once per 0.5s): accumulate samples, median of values > 70k.
+Saturation > ~8M displayed as 'sat'. get_latest() returns 4 channel tuples.
 """
 import threading
 import time
@@ -48,8 +48,8 @@ DEFAULT_SAMPLES_PER_UPDATE = 500
 
 class SensorReader:
     """
-    Parses 16-byte packets, accumulates Ch1/Ch3, then median of values > 70k (flash sampling).
-    Saturation > 8M: display as 'sat'. get_latest() -> ((m1, sat1), (m3, sat3)).
+    Parses 16-byte packets, accumulates Ch1-Ch4, then median of values > 70k (flash sampling).
+    Saturation > 8M: display as 'sat'. get_latest() -> ((m1, sat1), (m2, sat2), (m3, sat3), (m4, sat4)).
     """
     def __init__(self, port: str, baudrate: int = 230400, timeout: float = 0.01):
         self.port = port
@@ -60,11 +60,17 @@ class SensorReader:
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._c1_list: List[int] = []
+        self._c2_list: List[int] = []
         self._c3_list: List[int] = []
+        self._c4_list: List[int] = []
         self._ch1_med: float = 0.0
+        self._ch2_med: float = 0.0
         self._ch3_med: float = 0.0
+        self._ch4_med: float = 0.0
         self._ch1_sat: bool = False
+        self._ch2_sat: bool = False
         self._ch3_sat: bool = False
+        self._ch4_sat: bool = False
         self._last_ts: str = ""
         self._samples_per_update: int = DEFAULT_SAMPLES_PER_UPDATE
 
@@ -99,11 +105,17 @@ class SensorReader:
                     pass
                 self._ser = None
         self._c1_list.clear()
+        self._c2_list.clear()
         self._c3_list.clear()
+        self._c4_list.clear()
         self._ch1_med = 0.0
+        self._ch2_med = 0.0
         self._ch3_med = 0.0
+        self._ch4_med = 0.0
         self._ch1_sat = False
+        self._ch2_sat = False
         self._ch3_sat = False
+        self._ch4_sat = False
 
     def set_samples_per_update(self, n: int) -> None:
         """Adjust how many packets are used per median update (controls responsiveness vs noise)."""
@@ -130,46 +142,74 @@ class SensorReader:
                     ]
                     for pkt in packets:
                         chs = _process_packet(pkt)
-                        if len(chs) >= 3:
+                        if len(chs) >= 4:
                             self._c1_list.append(chs[0])
+                            self._c2_list.append(chs[1])
                             self._c3_list.append(chs[2])
+                            self._c4_list.append(chs[3])
                     if len(self._c1_list) >= self._samples_per_update:
                         c1_med = _median_of_above(self._c1_list, THRESHOLD_MIN)
+                        c2_med = _median_of_above(self._c2_list, THRESHOLD_MIN)
                         c3_med = _median_of_above(self._c3_list, THRESHOLD_MIN)
+                        c4_med = _median_of_above(self._c4_list, THRESHOLD_MIN)
                         low1 = c1_med == 0.0
+                        low2 = c2_med == 0.0
                         low3 = c3_med == 0.0
-                        # Use Ch3 as sync: if Ch3 says "no signal", force Ch1 to "no signal" too.
+                        low4 = c4_med == 0.0
+                        # Keep pair consistency for ratio channels: CH1 follows CH3, CH2 follows CH4.
                         if low3:
                             low1 = True
+                        if low4:
+                            low2 = True
                         self._ch1_sat = (not low1) and (c1_med > THRESHOLD_SATURATION)
+                        self._ch2_sat = (not low2) and (c2_med > THRESHOLD_SATURATION)
                         self._ch3_sat = (not low3) and (c3_med > THRESHOLD_SATURATION)
+                        self._ch4_sat = (not low4) and (c4_med > THRESHOLD_SATURATION)
                         if self._ch1_sat or low1:
                             c1_med = 0.0
+                        if self._ch2_sat or low2:
+                            c2_med = 0.0
                         if self._ch3_sat or low3:
                             c3_med = 0.0
+                        if self._ch4_sat or low4:
+                            c4_med = 0.0
                         self._ch1_med = c1_med
+                        self._ch2_med = c2_med
                         self._ch3_med = c3_med
+                        self._ch4_med = c4_med
                         self._c1_list = []
+                        self._c2_list = []
                         self._c3_list = []
+                        self._c4_list = []
                         self._last_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
             except Exception:
                 break
             time.sleep(0.01)
 
-    def get_latest(self) -> Tuple[Tuple[float, bool], Tuple[float, bool]]:
-        """Return ((ch1_millions, ch1_saturated), (ch3_millions, ch3_saturated)) for display. Saturated -> show 'sat'."""
+    def get_latest(self) -> Tuple[Tuple[float, bool], Tuple[float, bool], Tuple[float, bool], Tuple[float, bool]]:
+        """Return ((ch1_m,sat1),(ch2_m,sat2),(ch3_m,sat3),(ch4_m,sat4)) for display."""
         with self._lock:
             m1 = (self._ch1_med / 1e6) if self._ch1_med > 0 else 0.0
+            m2 = (self._ch2_med / 1e6) if self._ch2_med > 0 else 0.0
             m3 = (self._ch3_med / 1e6) if self._ch3_med > 0 else 0.0
-            # Final safeguard: if Ch3 is effectively zero, force Ch1 display to zero as well.
+            m4 = (self._ch4_med / 1e6) if self._ch4_med > 0 else 0.0
             if m3 == 0.0:
                 m1 = 0.0
-            return ((m1, self._ch1_sat and m3 > 0.0), (m3, self._ch3_sat))
+            if m4 == 0.0:
+                m2 = 0.0
+            return (
+                (m1, self._ch1_sat and m3 > 0.0),
+                (m2, self._ch2_sat and m4 > 0.0),
+                (m3, self._ch3_sat),
+                (m4, self._ch4_sat),
+            )
 
     def get_latest_reading(self, position: str = "0") -> SensorReading:
-        """Return SensorReading for automation CSV: timestamp, position, [ch1_m, ch3_m] (0 when saturated)."""
+        """Return SensorReading for automation CSV: timestamp, position, [ch1_m, ch2_m, ch3_m, ch4_m]."""
         with self._lock:
             ts = self._last_ts or datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
             m1 = (self._ch1_med / 1e6) if self._ch1_med > 0 else 0.0
+            m2 = (self._ch2_med / 1e6) if self._ch2_med > 0 else 0.0
             m3 = (self._ch3_med / 1e6) if self._ch3_med > 0 else 0.0
-            return SensorReading(timestamp=ts, position=position, values=[m1, m3])
+            m4 = (self._ch4_med / 1e6) if self._ch4_med > 0 else 0.0
+            return SensorReading(timestamp=ts, position=position, values=[m1, m2, m3, m4])

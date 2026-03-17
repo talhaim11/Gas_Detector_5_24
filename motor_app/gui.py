@@ -3,8 +3,8 @@ GUI: Manual / Automation modes, live sensor display, motor controls.
 Event-driven; serial processing on timer. Global STOP always active.
 """
 import tkinter as tk
-from tkinter import ttk, messagebox, font as tkfont
-from typing import Optional, Callable
+from tkinter import ttk, messagebox, simpledialog, font as tkfont
+from typing import Optional, Callable, Tuple
 from collections import deque
 import threading
 import time
@@ -37,14 +37,15 @@ AVG_APPEND_MS = 500
 LIVE_RECORD_APPEND_MS = 200
 
 
-# Channel display names (photon sensor signals)
-SIGNAL_LABELS = ("signal 2.0/2.1", "signal 2.3")
+# Channel display names
+CHANNEL_LABELS = ("CH1", "CH2", "CH3", "CH4")
+CHANNEL_COUNT_OPTIONS = ("1", "2", "4")
 CONNECT_MODE_MOTOR_AND_SIGNAL = "Motor + Signal"
 CONNECT_MODE_SIGNAL_ONLY = "Signal Only"
 
 
 class SensorDisplay(ttk.Frame):
-    """Scrolling graph for signal 2.0/2.1 (green) and signal 2.3 (blue). Values can be (float, is_sat)."""
+    """Scrolling graph for CH1-CH4. Values can be (float, is_sat)."""
     Y_MARGIN = 46
     X_MARGIN = 36
     AXIS_COLOR = "#888888"
@@ -67,6 +68,8 @@ class SensorDisplay(ttk.Frame):
         for i, item in enumerate(values):
             if i >= self.num_channels:
                 break
+            if item is None:
+                continue
             if isinstance(item, (tuple, list)) and len(item) >= 2:
                 x, is_sat = float(item[0]), bool(item[1])
             else:
@@ -87,7 +90,7 @@ class SensorDisplay(ttk.Frame):
         gy1 = h - self.X_MARGIN
         gw = gx1 - gx0
         gh = gy1 - gy0
-        colors = ["#00ff00", "#00aaff"]
+        colors = ["#00ff00", "#ffcc00", "#00aaff", "#ff6a00"]
         all_vals = []
         for ch in range(self.num_channels):
             if ch < len(self.buffers) and self.buffers[ch]:
@@ -107,8 +110,10 @@ class SensorDisplay(ttk.Frame):
         self.canvas.create_text(gx1, gy1 + 14, text="N", anchor=tk.N, fill=self.AXIS_COLOR, font=("Consolas", self.FONT_SIZE))
         self.canvas.create_text((gx0 + gx1) / 2, h - 4, text="samples", anchor=tk.N, fill=self.AXIS_COLOR, font=("Consolas", self.FONT_SIZE - 1))
         # Legend for sensor traces
-        self.canvas.create_text(gx1 - 90, gy0 + 10, text="2.0/2.1", anchor=tk.W, fill="#00ff00", font=("Consolas", self.FONT_SIZE))
-        self.canvas.create_text(gx1 - 90, gy0 + 24, text="2.3", anchor=tk.W, fill="#00aaff", font=("Consolas", self.FONT_SIZE))
+        self.canvas.create_text(gx1 - 110, gy0 + 10, text="CH1", anchor=tk.W, fill="#00ff00", font=("Consolas", self.FONT_SIZE))
+        self.canvas.create_text(gx1 - 110, gy0 + 24, text="CH2", anchor=tk.W, fill="#ffcc00", font=("Consolas", self.FONT_SIZE))
+        self.canvas.create_text(gx1 - 60, gy0 + 10, text="CH3", anchor=tk.W, fill="#00aaff", font=("Consolas", self.FONT_SIZE))
+        self.canvas.create_text(gx1 - 60, gy0 + 24, text="CH4", anchor=tk.W, fill="#ff6a00", font=("Consolas", self.FONT_SIZE))
         scale = gh / (mx - mn) if (mx - mn) > 0 else 1
         for ch, color in enumerate(colors):
             if ch >= len(self.buffers) or not self.buffers[ch]:
@@ -147,6 +152,7 @@ class MainApp(ttk.Frame):
         self.sensor_port = sensor_port
         self.sensor_baud = sensor_baud
         self._connection_mode_var = tk.StringVar(value=CONNECT_MODE_MOTOR_AND_SIGNAL)
+        self._channel_count_var = tk.StringVar(value="1")
         self._motor_port_var = tk.StringVar(value=motor_port)
         self._sensor_port_var = tk.StringVar(value=sensor_port)
         self._motor_adapter: Optional[LegacyMotorAdapter] = None
@@ -158,14 +164,12 @@ class MainApp(ttk.Frame):
         self._num_steps_var = tk.IntVar(value=DEFAULT_NUM_STEPS)
         self._progress_var = tk.StringVar(value="Idle")
         self._state_var = tk.StringVar(value=AppState.DISCONNECTED.name)
-        # Live ratio / measurements (signal 2.0/2.1 vs 2.3)
+        # Live channels / ratios
         self._ratio_var = tk.StringVar(value="--")
-        self._sig1_var = tk.StringVar(value="---")
-        self._sig3_var = tk.StringVar(value="---")
-        self._sig1_avg_var = tk.StringVar(value="none")
-        self._sig3_avg_var = tk.StringVar(value="none")
-        self._sig1_avg_buffer = []
-        self._sig3_avg_buffer = []
+        self._ratio2_var = tk.StringVar(value="--")
+        self._channel_value_vars = {ch: tk.StringVar(value="off") for ch in range(1, 5)}
+        self._channel_avg_vars = {ch: tk.StringVar(value="none") for ch in range(1, 5)}
+        self._channel_avg_buffers = {ch: [] for ch in range(1, 5)}
         self._last_avg_append_ts = 0.0
         self._record_rate_var = tk.StringVar(value="0.0 Hz")
         self._record_rate_times = deque()
@@ -176,20 +180,23 @@ class MainApp(ttk.Frame):
         self._live_records = []
         self._ratio_cal_ref: Optional[float] = None
         self._ratio_measurements = []  # list of dicts
-        self._last_m1 = 0.0
-        self._last_m3 = 0.0
+        self._latest_channels = {ch: 0.0 for ch in range(1, 5)}
+        self._latest_sats = {ch: False for ch in range(1, 5)}
         self._last_ratio_norm: Optional[float] = None
         self._current_ratio_raw: Optional[float] = None
+        self._current_ratio2_raw: Optional[float] = None
         self._last_scan_direction = DIR_RIGHT
         self._last_scan_step_size = DEFAULT_STEP_SIZE
         self._auto_delay_var = tk.IntVar(value=DEFAULT_DELAY_MS)
         self._auto_delay_var.trace_add("write", self._on_delay_change)  # Send SPEED command when change
         self._connection_mode_combo = None
+        self._channel_count_combo = None
         self._motor_port_combo = None
         self._sensor_port_combo = None
         self._build_ui()
         self._refresh_com_ports()
         self._on_connection_mode_change()
+        self._on_channel_count_change()
         self._after_id = None
         self._movement_timer_1 = None  # Track movement timeout for axis 1
         self._movement_timer_2 = None  # Track movement timeout for axis 2
@@ -197,9 +204,9 @@ class MainApp(ttk.Frame):
         self._bind_keyboard_controls()
 
     def _build_ui(self):
-        # Top: Connect / Disconnect, State, Global STOP
+        # Top row 1: COM selectors + Connect
         top = ttk.Frame(self)
-        top.pack(fill=tk.X, padx=4, pady=4)
+        top.pack(fill=tk.X, padx=4, pady=(4, 1))
         ttk.Label(top, text="Connect mode:").pack(side=tk.LEFT, padx=(0, 2))
         self._connection_mode_combo = ttk.Combobox(
             top,
@@ -208,22 +215,32 @@ class MainApp(ttk.Frame):
             width=14,
             state="readonly",
         )
-        self._connection_mode_combo.pack(side=tk.LEFT, padx=(0, 8))
+        self._connection_mode_combo.pack(side=tk.LEFT, padx=(0, 6))
         self._connection_mode_combo.bind("<<ComboboxSelected>>", lambda _e: self._on_connection_mode_change())
         ttk.Label(top, text="Motor COM:").pack(side=tk.LEFT, padx=(0, 2))
-        self._motor_port_combo = ttk.Combobox(top, textvariable=self._motor_port_var, width=10, state="readonly")
+        self._motor_port_combo = ttk.Combobox(top, textvariable=self._motor_port_var, width=8, state="readonly")
         self._motor_port_combo.pack(side=tk.LEFT, padx=(0, 6))
         ttk.Label(top, text="Sensor COM:").pack(side=tk.LEFT, padx=(0, 2))
-        self._sensor_port_combo = ttk.Combobox(top, textvariable=self._sensor_port_var, width=10, state="readonly")
+        self._sensor_port_combo = ttk.Combobox(top, textvariable=self._sensor_port_var, width=8, state="readonly")
         self._sensor_port_combo.pack(side=tk.LEFT, padx=(0, 6))
+        ttk.Label(top, text="Channels:").pack(side=tk.LEFT, padx=(0, 2))
+        self._channel_count_combo = ttk.Combobox(
+            top,
+            textvariable=self._channel_count_var,
+            values=CHANNEL_COUNT_OPTIONS,
+            width=3,
+            state="readonly",
+        )
+        self._channel_count_combo.pack(side=tk.LEFT, padx=(0, 6))
+        self._channel_count_combo.bind("<<ComboboxSelected>>", lambda _e: self._on_channel_count_change())
         ttk.Button(top, text="Refresh COM", command=self._refresh_com_ports).pack(side=tk.LEFT, padx=2)
-        ttk.Button(top, text="Connect", command=self._on_connect).pack(side=tk.LEFT, padx=2)
-        ttk.Button(top, text="Disconnect", command=self._on_disconnect).pack(side=tk.LEFT, padx=2)
-        ttk.Label(top, text="State:").pack(side=tk.LEFT, padx=(8, 2))
-        ttk.Label(top, textvariable=self._state_var, font=("Consolas", 10, "bold")).pack(side=tk.LEFT, padx=2)
-        stop_btn = ttk.Button(top, text="STOP ALL", command=self._on_stop_all)
-        stop_btn.pack(side=tk.RIGHT, padx=2)
-        self._stop_btn = stop_btn
+
+        # Top row 2: State + Connect
+        top2 = ttk.Frame(self)
+        top2.pack(fill=tk.X, padx=4, pady=(1, 4))
+        ttk.Label(top2, text="State:").pack(side=tk.LEFT, padx=(0, 2))
+        ttk.Label(top2, textvariable=self._state_var, font=("Consolas", 10, "bold")).pack(side=tk.LEFT, padx=2)
+        ttk.Button(top2, text="Connect", command=self._on_connect).pack(side=tk.RIGHT, padx=2)
 
         # Main body: left = motor controls, right = live sensor data
         body = ttk.Frame(self)
@@ -240,9 +257,9 @@ class MainApp(ttk.Frame):
         self._manual_mode_btn.pack(side=tk.LEFT, padx=2, pady=2)
         self._auto_mode_btn = ttk.Button(mode_f, text="Automation (Step Scan)", command=self._on_automation_mode)
         self._auto_mode_btn.pack(side=tk.LEFT, padx=2, pady=2)
-        ttk.Label(mode_f, text="Key: Space = STOP ALL", font=("Consolas", 8)).pack(
-            side=tk.RIGHT, padx=4
-        )
+        stop_btn = ttk.Button(mode_f, text="(space) stop", command=self._on_stop_all)
+        stop_btn.pack(side=tk.RIGHT, padx=4, pady=2)
+        self._stop_btn = stop_btn
 
         # Manual controls - Axis 1 (Left/Right)
         manual_f = ttk.LabelFrame(left_panel, text="Manual: Axis 1 (Left/Right)")
@@ -333,25 +350,39 @@ class MainApp(ttk.Frame):
         sensor_f = ttk.LabelFrame(right_panel, text="Live Sensor Data")
         sensor_f.pack(fill=tk.BOTH, expand=True, pady=4)
 
-        # Indicators box: ratio + signal values
+        # Indicators box: ratios + channel values
         indicators_f = ttk.LabelFrame(sensor_f, text="Indicators")
         indicators_f.pack(fill=tk.X, padx=4, pady=(4, 2))
         top_row = ttk.Frame(indicators_f)
         top_row.pack(anchor=tk.W, pady=(0, 2))
-        ttk.Label(top_row, text="Ratio (2.0/2.1 ÷ 2.3):").pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Label(top_row, text="Ratio1 (CH1/CH3):").pack(side=tk.LEFT, padx=(0, 4))
         ttk.Label(top_row, textvariable=self._ratio_var, font=("Consolas", 10, "bold"), width=8).pack(side=tk.LEFT)
-        sig_row = ttk.Frame(indicators_f)
-        sig_row.pack(anchor=tk.W, pady=(0, 2))
-        ttk.Label(sig_row, text="signal 2.0/2.1:").pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Label(sig_row, textvariable=self._sig1_var, font=("Consolas", 9), width=8).pack(side=tk.LEFT)
-        ttk.Label(sig_row, text="signal 2.3:").pack(side=tk.LEFT, padx=(12, 4))
-        ttk.Label(sig_row, textvariable=self._sig3_var, font=("Consolas", 9), width=8).pack(side=tk.LEFT)
-        avg_row = ttk.Frame(indicators_f)
-        avg_row.pack(anchor=tk.W, pady=(0, 2))
-        ttk.Label(avg_row, text="avg last 5 (2.0/2.1):").pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Label(avg_row, textvariable=self._sig1_avg_var, font=("Consolas", 9), width=8).pack(side=tk.LEFT)
-        ttk.Label(avg_row, text="avg last 5 (2.3):").pack(side=tk.LEFT, padx=(12, 4))
-        ttk.Label(avg_row, textvariable=self._sig3_avg_var, font=("Consolas", 9), width=8).pack(side=tk.LEFT)
+        ttk.Label(top_row, text="Ratio2 (CH2/CH4):").pack(side=tk.LEFT, padx=(12, 4))
+        ttk.Label(top_row, textvariable=self._ratio2_var, font=("Consolas", 10, "bold"), width=8).pack(side=tk.LEFT)
+        ch_row1 = ttk.Frame(indicators_f)
+        ch_row1.pack(anchor=tk.W, pady=(0, 2))
+        ttk.Label(ch_row1, text="CH1:").pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Label(ch_row1, textvariable=self._channel_value_vars[1], font=("Consolas", 9), width=8).pack(side=tk.LEFT)
+        ttk.Label(ch_row1, text="CH2:").pack(side=tk.LEFT, padx=(12, 4))
+        ttk.Label(ch_row1, textvariable=self._channel_value_vars[2], font=("Consolas", 9), width=8).pack(side=tk.LEFT)
+        ch_row2 = ttk.Frame(indicators_f)
+        ch_row2.pack(anchor=tk.W, pady=(0, 2))
+        ttk.Label(ch_row2, text="CH3:").pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Label(ch_row2, textvariable=self._channel_value_vars[3], font=("Consolas", 9), width=8).pack(side=tk.LEFT)
+        ttk.Label(ch_row2, text="CH4:").pack(side=tk.LEFT, padx=(12, 4))
+        ttk.Label(ch_row2, textvariable=self._channel_value_vars[4], font=("Consolas", 9), width=8).pack(side=tk.LEFT)
+        avg_row1 = ttk.Frame(indicators_f)
+        avg_row1.pack(anchor=tk.W, pady=(0, 2))
+        ttk.Label(avg_row1, text="AVG CH1:").pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Label(avg_row1, textvariable=self._channel_avg_vars[1], font=("Consolas", 9), width=8).pack(side=tk.LEFT)
+        ttk.Label(avg_row1, text="AVG CH2:").pack(side=tk.LEFT, padx=(12, 4))
+        ttk.Label(avg_row1, textvariable=self._channel_avg_vars[2], font=("Consolas", 9), width=8).pack(side=tk.LEFT)
+        avg_row2 = ttk.Frame(indicators_f)
+        avg_row2.pack(anchor=tk.W, pady=(0, 2))
+        ttk.Label(avg_row2, text="AVG CH3:").pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Label(avg_row2, textvariable=self._channel_avg_vars[3], font=("Consolas", 9), width=8).pack(side=tk.LEFT)
+        ttk.Label(avg_row2, text="AVG CH4:").pack(side=tk.LEFT, padx=(12, 4))
+        ttk.Label(avg_row2, textvariable=self._channel_avg_vars[4], font=("Consolas", 9), width=8).pack(side=tk.LEFT)
 
         # Controls / legend box
         controls_f = ttk.LabelFrame(sensor_f, text="Controls")
@@ -398,7 +429,7 @@ class MainApp(ttk.Frame):
         legend_row.pack_forget()
 
         # Live graph
-        self._sensor_display = SensorDisplay(sensor_f, num_channels=2)
+        self._sensor_display = SensorDisplay(sensor_f, num_channels=4)
         self._sensor_display.pack(fill=tk.BOTH, expand=True, padx=2, pady=(2, 4))
 
     def _list_com_ports(self):
@@ -435,6 +466,28 @@ class MainApp(ttk.Frame):
         signal_only = self._connection_mode_var.get() == CONNECT_MODE_SIGNAL_ONLY
         if self._motor_port_combo is not None:
             self._motor_port_combo.configure(state="disabled" if signal_only else "readonly")
+
+    def _active_channels(self):
+        mode = self._channel_count_var.get().strip()
+        if mode == "1":
+            return {3}
+        if mode == "2":
+            return {1, 3}
+        return {1, 2, 3, 4}
+
+    def _on_channel_count_change(self):
+        active = self._active_channels()
+        for ch in range(1, 5):
+            if ch not in active:
+                self._channel_avg_buffers[ch].clear()
+                self._channel_value_vars[ch].set("off")
+                self._channel_avg_vars[ch].set("off")
+                if hasattr(self, "_sensor_display") and self._sensor_display is not None:
+                    self._sensor_display.buffers[ch - 1].clear()
+        if not ({1, 3} <= active):
+            self._ratio_var.set("--")
+        if not ({2, 4} <= active):
+            self._ratio2_var.set("--")
 
     def _bind_keyboard_controls(self):
         """Bind keyboard keys for hold-to-move continuous control."""
@@ -621,14 +674,18 @@ class MainApp(ttk.Frame):
             self._controller = None
         self._motor_adapter = None
         self._state_var.set(AppState.DISCONNECTED.name)
-        self._sig1_avg_buffer.clear()
-        self._sig3_avg_buffer.clear()
+        for ch in range(1, 5):
+            self._channel_avg_buffers[ch].clear()
+            self._channel_value_vars[ch].set("off")
+            self._channel_avg_vars[ch].set("off")
+            self._latest_channels[ch] = 0.0
+            self._latest_sats[ch] = False
         self._last_avg_append_ts = 0.0
         self._record_rate_times.clear()
         self._last_live_record_ts = 0.0
         self._record_rate_var.set("0.0 Hz")
-        self._sig1_avg_var.set("none")
-        self._sig3_avg_var.set("none")
+        self._ratio_var.set("--")
+        self._ratio2_var.set("--")
         self._update_controls()
         if self._after_id:
             self.after_cancel(self._after_id)
@@ -639,77 +696,96 @@ class MainApp(ttk.Frame):
             if self._controller:
                 self._controller.process_responses()
             if self._sensor_reader and self._sensor_reader.is_open():
-                (m1, sat1), (m3, sat3) = self._sensor_reader.get_latest()
-                # Store latest values
-                self._last_m1, self._last_m3 = m1, m3
-                # Raw ratio (2.0/2.1 divided by 2.3) if valid
+                ch_data = self._sensor_reader.get_latest()
+                active = self._active_channels()
+                for idx, (m, sat) in enumerate(ch_data, start=1):
+                    self._latest_channels[idx] = m
+                    self._latest_sats[idx] = sat
+                # Ratio1 = CH1/CH3
                 ratio_raw = None
-                if not sat1 and not sat3 and m1 > 0 and m3 > 0:
-                    ratio_raw = m1 / m3
+                if {1, 3} <= active:
+                    if (not self._latest_sats[1]) and (not self._latest_sats[3]) and self._latest_channels[1] > 0 and self._latest_channels[3] > 0:
+                        ratio_raw = self._latest_channels[1] / self._latest_channels[3]
                 self._current_ratio_raw = ratio_raw
-                # Calibrated ratio (normalized so that calibration point = 1.0)
                 if ratio_raw is not None and self._ratio_cal_ref and self._ratio_cal_ref > 0:
                     ratio_norm = ratio_raw / self._ratio_cal_ref
                 else:
                     ratio_norm = ratio_raw
                 self._last_ratio_norm = ratio_norm
-                if ratio_norm is not None:
-                    self._ratio_var.set(f"{ratio_norm:.3f}")
+                if {1, 3} <= active:
+                    self._ratio_var.set(f"{ratio_norm:.3f}" if ratio_norm is not None else "sat")
                 else:
                     self._ratio_var.set("--")
-                # Update signal indicators (respect saturation)
-                if sat1:
-                    sig1_txt = "sat"
-                elif m1 > 0:
-                    sig1_txt = f"{m1:.3f}"
-                else:
-                    sig1_txt = "0"
-                if sat3:
-                    sig3_txt = "sat"
-                elif m3 > 0:
-                    sig3_txt = f"{m3:.3f}"
-                else:
-                    sig3_txt = "0"
-                self._sig1_var.set(sig1_txt)
-                self._sig3_var.set(sig3_txt)
+                # Ratio2 = CH2/CH4
+                ratio2_raw = None
+                if {2, 4} <= active:
+                    if (not self._latest_sats[2]) and (not self._latest_sats[4]) and self._latest_channels[2] > 0 and self._latest_channels[4] > 0:
+                        ratio2_raw = self._latest_channels[2] / self._latest_channels[4]
+                self._current_ratio2_raw = ratio2_raw
+                self._ratio2_var.set(f"{ratio2_raw:.3f}" if ratio2_raw is not None else ("sat" if {2, 4} <= active else "--"))
+
+                # Update channel indicators (respect saturation and active-channel mode)
+                txt_by_ch = {}
+                for ch in range(1, 5):
+                    if ch not in active:
+                        txt_by_ch[ch] = "off"
+                        self._channel_value_vars[ch].set("off")
+                        self._channel_avg_vars[ch].set("off")
+                        self._channel_avg_buffers[ch].clear()
+                        continue
+                    v = self._latest_channels[ch]
+                    sat = self._latest_sats[ch]
+                    if sat:
+                        txt = "sat"
+                    elif v > 0:
+                        txt = f"{v:.3f}"
+                    else:
+                        txt = "0"
+                    txt_by_ch[ch] = txt
+                    self._channel_value_vars[ch].set(txt)
                 now = time.monotonic()
                 if (now - self._last_avg_append_ts) * 1000 >= AVG_APPEND_MS:
                     self._last_avg_append_ts = now
-                    if sig1_txt not in ("sat", "0"):
-                        try:
-                            self._sig1_avg_buffer.append(float(sig1_txt))
-                        except ValueError:
-                            pass
-                    if sig3_txt not in ("sat", "0"):
-                        try:
-                            self._sig3_avg_buffer.append(float(sig3_txt))
-                        except ValueError:
-                            pass
-                if len(self._sig1_avg_buffer) == AVG_SIGNAL_WINDOW:
-                    self._sig1_avg_var.set(f"{(sum(self._sig1_avg_buffer) / AVG_SIGNAL_WINDOW):.3f}")
-                    self._sig1_avg_buffer.clear()
-                if len(self._sig3_avg_buffer) == AVG_SIGNAL_WINDOW:
-                    self._sig3_avg_var.set(f"{(sum(self._sig3_avg_buffer) / AVG_SIGNAL_WINDOW):.3f}")
-                    self._sig3_avg_buffer.clear()
+                    for ch in active:
+                        txt = txt_by_ch.get(ch, "0")
+                        if txt not in ("sat", "0", "off"):
+                            try:
+                                self._channel_avg_buffers[ch].append(float(txt))
+                            except ValueError:
+                                pass
+                for ch in active:
+                    if len(self._channel_avg_buffers[ch]) == AVG_SIGNAL_WINDOW:
+                        self._channel_avg_vars[ch].set(f"{(sum(self._channel_avg_buffers[ch]) / AVG_SIGNAL_WINDOW):.3f}")
+                        self._channel_avg_buffers[ch].clear()
+                    elif self._channel_avg_vars[ch].get() == "off":
+                        self._channel_avg_vars[ch].set("none")
                 # Continuous live recording: append one row per poll when enabled
                 if self._live_recording:
                     if (now - self._last_live_record_ts) * 1000 >= LIVE_RECORD_APPEND_MS:
                         self._last_live_record_ts = now
                         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                        ratio1_for_save = ratio_raw if {1, 3} <= active else ""
+                        ratio1_cal_for_save = ratio_norm if {1, 3} <= active else ""
+                        ratio2_for_save = ratio2_raw if {2, 4} <= active else ""
                         self._live_records.append(
                             {
                                 "timestamp": ts,
-                                "signal_2_0_2_1_M": m1,
-                                "signal_2_3_M": m3,
-                                "ratio_raw": ratio_raw if ratio_raw is not None else "sat",
-                                "ratio_calibrated": ratio_norm if ratio_norm is not None else "sat",
+                                "active_channels": sorted(active),
+                                "ch1_M": self._latest_channels[1] if 1 in active else "off",
+                                "ch2_M": self._latest_channels[2] if 2 in active else "off",
+                                "ch3_M": self._latest_channels[3] if 3 in active else "off",
+                                "ch4_M": self._latest_channels[4] if 4 in active else "off",
+                                "ratio1_raw": ratio1_for_save if ratio1_for_save is not None else "sat",
+                                "ratio1_calibrated": ratio1_cal_for_save if ratio1_cal_for_save is not None else "sat",
+                                "ratio2_raw": ratio2_for_save if ratio2_for_save is not None else "sat",
                             }
                         )
                         self._record_rate_times.append(now)
                 while self._record_rate_times and now - self._record_rate_times[0] > 1.0:
                     self._record_rate_times.popleft()
                 self._record_rate_var.set(f"{len(self._record_rate_times):.1f} Hz")
-                self._sensor_display.update_values([(m1, sat1), (m3, sat3)])
+                graph_values = [item if (idx + 1) in active else None for idx, item in enumerate(ch_data)]
+                self._sensor_display.update_values(graph_values)
             self._after_id = self.after(SERIAL_POLL_MS, poll)
         self._after_id = self.after(SERIAL_POLL_MS, poll)
 
@@ -852,6 +928,30 @@ class MainApp(ttk.Frame):
             self._stop_record_btn.state(["!disabled"])
         messagebox.showinfo("Record", "Live recording started. Press '(t) Stop' to save.")
 
+    def _prompt_save_filename(self) -> Tuple[bool, Optional[str]]:
+        """Ask user for default filename or custom filename before saving XLSX."""
+        choice = messagebox.askyesnocancel(
+            "Save XLSX",
+            "Use default file name?\nYes = default\nNo = custom name\nCancel = abort save",
+        )
+        if choice is None:
+            return False, None
+        if choice:
+            return True, None
+        suggested = datetime.now().strftime("ratio_%Y-%m-%d_%H%M%S")
+        custom_name = simpledialog.askstring(
+            "Custom file name",
+            "Enter file name (without extension):",
+            initialvalue=suggested,
+            parent=self,
+        )
+        if custom_name is None:
+            return False, None
+        custom_name = custom_name.strip()
+        if not custom_name:
+            return True, None
+        return True, custom_name
+
     def _on_live_record_stop(self):
         """Stop continuous logging and save to CSV via DataLogger."""
         if not self._live_recording:
@@ -867,29 +967,37 @@ class MainApp(ttk.Frame):
             messagebox.showinfo("Record", "No samples were recorded.")
             return
         try:
-            path = self._logger.save_ratio_measurements(self._live_records)
+            proceed, custom_name = self._prompt_save_filename()
+            if not proceed:
+                return
+            path = self._logger.save_ratio_measurements(self._live_records, file_name=custom_name)
             messagebox.showinfo("Record", f"Recorded {len(self._live_records)} samples to:\n{path}")
             self._live_records = []
         except Exception as exc:
             messagebox.showerror("Record", f"Failed to save recording:\n{exc}")
 
     def _on_calibrate_ratio(self):
-        """Set current ratio as reference so future values are ~1 when signals keep their relation."""
+        """Set current Ratio1 (CH1/CH3) as reference so future values are ~1."""
         if self._current_ratio_raw is None or self._current_ratio_raw <= 0:
-            messagebox.showwarning("Calibrate ratio", "Cannot calibrate: ratio is not available (signals may be 0 or saturated).")
+            messagebox.showwarning("Calibrate ratio", "Cannot calibrate Ratio1: CH1/CH3 is not available (channels may be 0 or saturated).")
             return
         self._ratio_cal_ref = self._current_ratio_raw
-        self._log_action(f"Calibrated: raw ratio {self._current_ratio_raw:.3f} → 1.0")
+        self._log_action(f"Calibrated Ratio1: raw {self._current_ratio_raw:.3f} -> 1.0")
 
     def _on_add_ratio_measurement(self):
         """Add current ratio point to in-memory list."""
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        active = self._active_channels()
         entry = {
             "timestamp": ts,
-            "signal_2_0_2_1_M": self._last_m1,
-            "signal_2_3_M": self._last_m3,
-            "ratio_raw": self._current_ratio_raw if self._current_ratio_raw is not None else "sat",
-            "ratio_calibrated": self._last_ratio_norm if self._last_ratio_norm is not None else "sat",
+            "active_channels": sorted(active),
+            "ch1_M": self._latest_channels[1] if 1 in active else "off",
+            "ch2_M": self._latest_channels[2] if 2 in active else "off",
+            "ch3_M": self._latest_channels[3] if 3 in active else "off",
+            "ch4_M": self._latest_channels[4] if 4 in active else "off",
+            "ratio1_raw": (self._current_ratio_raw if self._current_ratio_raw is not None else "sat") if {1, 3} <= active else "",
+            "ratio1_calibrated": (self._last_ratio_norm if self._last_ratio_norm is not None else "sat") if {1, 3} <= active else "",
+            "ratio2_raw": (self._current_ratio2_raw if self._current_ratio2_raw is not None else "sat") if {2, 4} <= active else "",
         }
         self._ratio_measurements.append(entry)
         self._log_action(f"Measurement #{len(self._ratio_measurements)} stored.")
@@ -901,7 +1009,10 @@ class MainApp(ttk.Frame):
             return
         try:
             count = len(self._ratio_measurements)
-            path = self._logger.save_ratio_measurements(self._ratio_measurements)
+            proceed, custom_name = self._prompt_save_filename()
+            if not proceed:
+                return
+            path = self._logger.save_ratio_measurements(self._ratio_measurements, file_name=custom_name)
             self._ratio_measurements = []
             self._log_action(f"Saved {count} measurements → {path.name}")
             messagebox.showinfo("Save", f"Saved {count} measurements to:\n{path}")

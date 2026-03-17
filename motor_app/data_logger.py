@@ -4,6 +4,7 @@ Filename: scan_YYYY-MM-DD_HHMMSS_dir-R_step-<value>.csv
 Columns: timestamp, scan_index, direction, step_size, position, sensor_1, sensor_2, ...
 """
 import csv
+import re
 from pathlib import Path
 from datetime import datetime
 from typing import List, Union, Optional
@@ -94,6 +95,15 @@ def _safe_float(value, default: float = 0.0) -> float:
         return default
 
 
+def _sanitize_filename_stem(file_name: str) -> str:
+    """Return a safe stem for local save directory filenames."""
+    stem = Path(file_name).name
+    if stem.lower().endswith(".xlsx"):
+        stem = stem[:-5]
+    stem = re.sub(r"[<>:\"/\\|?*]", "_", stem).strip().strip(".")
+    return stem
+
+
 class DataLogger:
     """
     Wraps save_scan_csv and optional live buffer for UI.
@@ -121,48 +131,93 @@ class DataLogger:
             sensor_headers=sensor_headers,
         )
 
-    def save_ratio_measurements(self, rows: List[dict]) -> Path:
+    def save_ratio_measurements(self, rows: List[dict], file_name: Optional[str] = None) -> Path:
         """
         Save manual ratio measurements to Excel (.xlsx).
-        Columns: timestamp, signal_2.0/2.1_M, signal_2.3_M,
-                 signal_2.0/2.1_normalized, signal_2.3_normalized,
-                 ratio_raw, ratio_calibrated.
-        Normalized = value / max(column); max is computed over non-zero values.
+        New schema (preferred): timestamp, ch1_M, ch2_M, ch3_M, ch4_M,
+        ch1_norm, ch2_norm, ch3_norm, ch4_norm, ratio1_raw, ratio1_calibrated, ratio2_raw.
+        Backward-compatible with old 2-signal schema.
         """
         now = datetime.now()
         date_str = now.strftime(CSV_FILENAME_DATE_FMT)
         time_str = now.strftime(CSV_FILENAME_TIME_FMT)
-        path = self.save_dir / f"ratio_{date_str}_{time_str}.xlsx"
-        sig1_vals = [_safe_float(r.get("signal_2_0_2_1_M"), 0.0) for r in rows]
-        sig3_vals = [_safe_float(r.get("signal_2_3_M"), 0.0) for r in rows]
-        max_sig1 = max((v for v in sig1_vals if v > 0), default=1.0)
-        max_sig3 = max((v for v in sig3_vals if v > 0), default=1.0)
+        default_stem = f"ratio_{date_str}_{time_str}"
+        if file_name:
+            custom_stem = _sanitize_filename_stem(file_name)
+            stem = custom_stem or default_stem
+        else:
+            stem = default_stem
+        path = self.save_dir / f"{stem}.xlsx"
+        has_new_schema = any("ch1_M" in r or "ch2_M" in r or "ch3_M" in r or "ch4_M" in r for r in rows)
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.append([
-            "timestamp",
-            "signal_2.0/2.1_M",
-            "signal_2.3_M",
-            "signal_2.0/2.1_normalized",
-            "signal_2.3_normalized",
-            "ratio_raw",
-            "ratio_calibrated",
-        ])
-
-        # Excel stores width in character units. ~26.5 gives about 190 px.
-        for col_idx in range(1, 8):
-            ws.column_dimensions[get_column_letter(col_idx)].width = 26.5
-
-        for r, s1, s3 in zip(rows, sig1_vals, sig3_vals):
+        if has_new_schema:
+            ch_vals = {1: [], 2: [], 3: [], 4: []}
+            for r in rows:
+                active = set(r.get("active_channels", [1, 2, 3, 4]))
+                if 1 in active:
+                    ch_vals[1].append(_safe_float(r.get("ch1_M"), 0.0))
+                if 2 in active:
+                    ch_vals[2].append(_safe_float(r.get("ch2_M"), 0.0))
+                if 3 in active:
+                    ch_vals[3].append(_safe_float(r.get("ch3_M"), 0.0))
+                if 4 in active:
+                    ch_vals[4].append(_safe_float(r.get("ch4_M"), 0.0))
+            ch_max = {k: max((v for v in vals if v > 0), default=1.0) for k, vals in ch_vals.items()}
             ws.append([
-                r.get("timestamp", ""),
-                s1,
-                s3,
-                round(s1 / max_sig1, 6) if s1 > 0 else 0,
-                round(s3 / max_sig3, 6) if s3 > 0 else 0,
-                r.get("ratio_raw", ""),
-                r.get("ratio_calibrated", ""),
+                "timestamp",
+                "CH1_M", "CH2_M", "CH3_M", "CH4_M",
+                "CH1_norm", "CH2_norm", "CH3_norm", "CH4_norm",
+                "ratio1_raw", "ratio1_calibrated", "ratio2_raw",
             ])
+            for col_idx in range(1, 13):
+                ws.column_dimensions[get_column_letter(col_idx)].width = 18
+            for r in rows:
+                active = set(r.get("active_channels", [1, 2, 3, 4]))
+                c1 = _safe_float(r.get("ch1_M"), 0.0)
+                c2 = _safe_float(r.get("ch2_M"), 0.0)
+                c3 = _safe_float(r.get("ch3_M"), 0.0)
+                c4 = _safe_float(r.get("ch4_M"), 0.0)
+                ws.append([
+                    r.get("timestamp", ""),
+                    c1 if 1 in active else "off",
+                    c2 if 2 in active else "off",
+                    c3 if 3 in active else "off",
+                    c4 if 4 in active else "off",
+                    round(c1 / ch_max[1], 6) if (1 in active and c1 > 0) else "",
+                    round(c2 / ch_max[2], 6) if (2 in active and c2 > 0) else "",
+                    round(c3 / ch_max[3], 6) if (3 in active and c3 > 0) else "",
+                    round(c4 / ch_max[4], 6) if (4 in active and c4 > 0) else "",
+                    r.get("ratio1_raw", r.get("ratio_raw", "")),
+                    r.get("ratio1_calibrated", r.get("ratio_calibrated", "")),
+                    r.get("ratio2_raw", ""),
+                ])
+        else:
+            sig1_vals = [_safe_float(r.get("signal_2_0_2_1_M"), 0.0) for r in rows]
+            sig3_vals = [_safe_float(r.get("signal_2_3_M"), 0.0) for r in rows]
+            max_sig1 = max((v for v in sig1_vals if v > 0), default=1.0)
+            max_sig3 = max((v for v in sig3_vals if v > 0), default=1.0)
+            ws.append([
+                "timestamp",
+                "signal_2.0/2.1_M",
+                "signal_2.3_M",
+                "signal_2.0/2.1_normalized",
+                "signal_2.3_normalized",
+                "ratio_raw",
+                "ratio_calibrated",
+            ])
+            for col_idx in range(1, 8):
+                ws.column_dimensions[get_column_letter(col_idx)].width = 26.5
+            for r, s1, s3 in zip(rows, sig1_vals, sig3_vals):
+                ws.append([
+                    r.get("timestamp", ""),
+                    s1,
+                    s3,
+                    round(s1 / max_sig1, 6) if s1 > 0 else 0,
+                    round(s3 / max_sig3, 6) if s3 > 0 else 0,
+                    r.get("ratio_raw", ""),
+                    r.get("ratio_calibrated", ""),
+                ])
 
         wb.save(path)
         return path
