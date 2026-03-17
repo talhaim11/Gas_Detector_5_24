@@ -134,8 +134,8 @@ class DataLogger:
     def save_ratio_measurements(self, rows: List[dict], file_name: Optional[str] = None) -> Path:
         """
         Save manual ratio measurements to Excel (.xlsx).
-        New schema (preferred): timestamp, ch1_M, ch2_M, ch3_M, ch4_M,
-        ch1_norm, ch2_norm, ch3_norm, ch4_norm, ratio1_raw, ratio1_calibrated, ratio2_raw.
+        New schema (preferred): timestamp, ch1_M..ch4_M, ch1_avg..ch4_avg,
+        ch1_norm..ch4_norm, ratio1_raw, ratio1_calibrated, ratio2_raw.
         Backward-compatible with old 2-signal schema.
         """
         now = datetime.now()
@@ -167,10 +167,11 @@ class DataLogger:
             ws.append([
                 "timestamp",
                 "CH1_M", "CH2_M", "CH3_M", "CH4_M",
+                "CH1_avg", "CH2_avg", "CH3_avg", "CH4_avg",
                 "CH1_norm", "CH2_norm", "CH3_norm", "CH4_norm",
                 "ratio1_raw", "ratio1_calibrated", "ratio2_raw",
             ])
-            for col_idx in range(1, 13):
+            for col_idx in range(1, 17):
                 ws.column_dimensions[get_column_letter(col_idx)].width = 18
             for r in rows:
                 active = set(r.get("active_channels", [1, 2, 3, 4]))
@@ -178,12 +179,20 @@ class DataLogger:
                 c2 = _safe_float(r.get("ch2_M"), 0.0)
                 c3 = _safe_float(r.get("ch3_M"), 0.0)
                 c4 = _safe_float(r.get("ch4_M"), 0.0)
+                a1 = _safe_float(r.get("ch1_avg"), 0.0)
+                a2 = _safe_float(r.get("ch2_avg"), 0.0)
+                a3 = _safe_float(r.get("ch3_avg"), 0.0)
+                a4 = _safe_float(r.get("ch4_avg"), 0.0)
                 ws.append([
                     r.get("timestamp", ""),
                     c1 if 1 in active else "off",
                     c2 if 2 in active else "off",
                     c3 if 3 in active else "off",
                     c4 if 4 in active else "off",
+                    a1 if 1 in active else "off",
+                    a2 if 2 in active else "off",
+                    a3 if 3 in active else "off",
+                    a4 if 4 in active else "off",
                     round(c1 / ch_max[1], 6) if (1 in active and c1 > 0) else "",
                     round(c2 / ch_max[2], 6) if (2 in active and c2 > 0) else "",
                     round(c3 / ch_max[3], 6) if (3 in active and c3 > 0) else "",

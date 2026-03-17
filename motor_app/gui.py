@@ -775,6 +775,10 @@ class MainApp(ttk.Frame):
                                 "ch2_M": self._latest_channels[2] if 2 in active else "off",
                                 "ch3_M": self._latest_channels[3] if 3 in active else "off",
                                 "ch4_M": self._latest_channels[4] if 4 in active else "off",
+                                "ch1_avg": self._current_channel_avg_for_save(1) if 1 in active else "off",
+                                "ch2_avg": self._current_channel_avg_for_save(2) if 2 in active else "off",
+                                "ch3_avg": self._current_channel_avg_for_save(3) if 3 in active else "off",
+                                "ch4_avg": self._current_channel_avg_for_save(4) if 4 in active else "off",
                                 "ratio1_raw": ratio1_for_save if ratio1_for_save is not None else "sat",
                                 "ratio1_calibrated": ratio1_cal_for_save if ratio1_cal_for_save is not None else "sat",
                                 "ratio2_raw": ratio2_for_save if ratio2_for_save is not None else "sat",
@@ -952,6 +956,16 @@ class MainApp(ttk.Frame):
             return True, None
         return True, custom_name
 
+    def _current_channel_avg_for_save(self, ch: int):
+        """Return current channel average for save rows."""
+        txt = self._channel_avg_vars[ch].get().strip().lower()
+        if txt in ("off", "none", ""):
+            return txt or "none"
+        try:
+            return float(txt)
+        except ValueError:
+            return txt
+
     def _on_live_record_stop(self):
         """Stop continuous logging and save to CSV via DataLogger."""
         if not self._live_recording:
@@ -995,6 +1009,10 @@ class MainApp(ttk.Frame):
             "ch2_M": self._latest_channels[2] if 2 in active else "off",
             "ch3_M": self._latest_channels[3] if 3 in active else "off",
             "ch4_M": self._latest_channels[4] if 4 in active else "off",
+            "ch1_avg": self._current_channel_avg_for_save(1) if 1 in active else "off",
+            "ch2_avg": self._current_channel_avg_for_save(2) if 2 in active else "off",
+            "ch3_avg": self._current_channel_avg_for_save(3) if 3 in active else "off",
+            "ch4_avg": self._current_channel_avg_for_save(4) if 4 in active else "off",
             "ratio1_raw": (self._current_ratio_raw if self._current_ratio_raw is not None else "sat") if {1, 3} <= active else "",
             "ratio1_calibrated": (self._last_ratio_norm if self._last_ratio_norm is not None else "sat") if {1, 3} <= active else "",
             "ratio2_raw": (self._current_ratio2_raw if self._current_ratio2_raw is not None else "sat") if {2, 4} <= active else "",
